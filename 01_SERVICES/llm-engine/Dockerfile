@@ -8,7 +8,7 @@ ENV UV_LINK_MODE=copy \
 
 WORKDIR /app
 
-COPY pyproject.toml ./
+COPY pyproject.toml README.md ./
 RUN uv venv /app/.venv && \
     uv pip install --python /app/.venv/bin/python -e .
 
