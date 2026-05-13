@@ -1,69 +1,122 @@
-# 🤖 ROBITA-LAB: Manual de Infraestructura y Desarrollo
+# ROBITA-LAB — Cognitive Robotics Core
 
-Este servidor central (`/opt/robita-lab`) es el entorno de desarrollo activo e integración para el laboratorio de Robótica Social y Agentes de IA. A diferencia de GitHub, que actúa como el control de versiones histórico, este servidor es el **banco de pruebas físico y digital** donde se valida el pipeline antes de su despliegue final.
+Plataforma del laboratorio **Robita-Lab** (UDIT) para agentes cognitivos en robótica social: RAG, LLMs locales, voz y adaptadores hardware.
 
----
+Repositorio: [github.com/robita-lab/cognitive-robotics-core](https://github.com/robita-lab/cognitive-robotics-core)
 
-## 🏗️ 1. Filosofía de Trabajo y Ciclo de Vida
-El desarrollo en ROBITA-LAB sigue un ciclo de **"Server-First Integration"**:
-
-1.  **Desarrollo**: Se codifica en ramas `feature/` siguiendo la guía `GIT-FLOW.md`.
-2.  **Validación**: Se despliega el componente en este servidor para probar la comunicación real entre servicios (ej. que el RAG responda al motor de gesticulación).
-3.  **Sincronización**: Una vez validado, se hace `push` a GitHub.
-4.  **Despliegue (Pull)**: Los dispositivos finales (como el robot UDITO o servidores web) realizan un `pull` de las imágenes de Docker o el código verificado.
+Ruta de trabajo habitual en servidor: `/opt/robita-lab`
 
 ---
 
-## 📁 2. Arquitectura de Directorios (Niveles del Ecosistema)
+## Producto UDITO (robot de voz)
 
-### [01_SERVICES] — El Cerebro (Lógica de IA)
-Contiene los servicios de procesamiento de lenguaje y señales. 
-- **Modularidad**: Cada motor (STT, TTS, RAG) es independiente.
-- **Escalabilidad**: Permite intercambiar motores pesados (Online/Server) por motores ligeros (Offline/Jetson).
-- **Ejemplo**: El `rag-engine` puede usar un modelo GPT-4 vía API o un modelo Llama-3 local dependiendo de la conectividad.
+Asistente tipo Alexa/Siri para el autómata social **UDITO**: wakeword «udito» → saludo → pregunta por voz → respuesta hablada. **No es una web app.**
 
-### [02_AGENTS_FACTORY] — Personalidades e Instancias
-Es la capa de configuración que define el "Quién" del asistente.
-- **Contenido**: Prompts de sistema, parámetros de voz y vinculación a bases de datos.
-- **Diferenciación**: Aquí se define que un agente en la Web sea un "Asesor de RRHH" y que el mismo cerebro en el robot UDITO sea un "Compañero Social". **No se cambia el código del motor, solo el perfil en esta carpeta.**
+| Modo | Script | Descripción |
+|------|--------|-------------|
+| **Cerebro virtual** | `./scripts/launch.sh` o `./scripts/udito_virtual.sh` | STT + TTS + RAG + orquestador (puertos 8000–8004) |
+| **Robot físico** | `./scripts/udito.sh` | Wakeword y mic en el cuerpo; cerebro por red (`ROBITA_SERVER_URL`) |
+| **Todo en un PC** | `./scripts/udito_standalone.sh` | Wakeword + STT + RAG + TTS locales (sin Docker) |
 
-### [03_ADAPTERS] — El Cuerpo (Hardware y Clientes)
-Contiene el código que conecta la IA con el mundo real o interfaces digitales.
-- **Robot Social (UDIT)**: Contiene el entorno **ROS** (Robot Operating System). Recibe el JSON de la IA (texto + emoción) y lo traduce a movimientos físicos (servos de cara, ruedas, luces).
-- **Web Clients**: Interfaces que adaptan el RAG a portales institucionales.
-
-### [04_KNOWLEDGE_CORE] — El Saber (Persistencia)
-Memoria a largo plazo organizada para un **RAG Escalable**.
-- **Vector Stores**: Índices segmentados por áreas (Admisiones, Finanzas, etc.).
-- **ProtoBrain**: Evolución hacia grafos cognitivos para relaciones de datos complejas.
-- **Raw Docs**: Repositorio de los documentos originales (PDF/Texto) de la universidad.
+Guía de despliegue Jetson/servidor: [`DEPLOY_UDITO.md`](DEPLOY_UDITO.md)
 
 ---
 
-## 🚀 3. Integración en Hardware (Ejemplo: UDITO / Jetson)
+## Arquitectura de carpetas
 
-Para llevar la inteligencia del servidor al robot físico:
+### `01_SERVICES/` — Motores de IA
 
-1.  **Sincronización**: El hardware (Jetson Nvidia) clona la rama `develop` de este servidor.
-2.  **Pipeline de Asistente**: La Jetson ejecuta localmente el adaptador (`03_ADAPTERS/robot-udit-physical`) para gestionar sensores y motores en tiempo real vía ROS.
-3.  **Modo Offline**: Si el robot pierde conexión, el sistema conmuta automáticamente a los modelos almacenados en las subcarpetas de este servidor optimizadas para ejecución local (Modelos cuantizados).
+| Servicio | Puerto | Rol |
+|----------|--------|-----|
+| `pipeline-orchestrator` | 8000 | STT → RAG / despedida → TTS (`/voice-query`) |
+| `stt-engine` | 8001 | Whisper (faster-whisper) |
+| `tts-engine` | 8002 | Piper (es_ES-sharvard-medium) |
+| `wakeword-engine` | 8003 | Detector «udito» (TFLite) |
+| `rag-engine` | 8004 | FAISS + TinyLlama + Q&A fijo |
 
+### `02_AGENTS_FACTORY/` — Perfil del agente
 
+- `udit-robot-brain/`: personalidad, `config.yaml` y rutas al knowledge core.
+- El **saludo inicial** lo define el agente / `04_KNOWLEDGE_CORE/responses/agent.json`.
+
+### `03_ADAPTERS/robot-udit-physical/` — Cuerpo del robot
+
+- `udito.py` — robot físico (edge).
+- `udito_standalone.py` — modo monolítico local.
+- `robot_common.py` — bucle wakeword, VAD, audio compartido.
+
+### `04_KNOWLEDGE_CORE/` — Conocimiento y textos hablados
+
+```
+04_KNOWLEDGE_CORE/
+├── raw-docs/              # PDFs y TXT para RAG documental
+├── responses/
+│   ├── agent.json         # Saludo tras wakeword
+│   ├── conversation.json  # Despedida, avisos, goodbye_keywords
+│   └── qa.json            # Preguntas fijas (identidad, sedes…)
+└── load_responses.py      # Cargador único de textos
+```
+
+Variable de entorno: `ROBITA_KNOWLEDGE_CORE` (por defecto `04_KNOWLEDGE_CORE`).
 
 ---
 
-## 🛠️ 4. Reglas de Operación para Investigadores
+## Inicio rápido
 
-* **Dockerización**: Es obligatorio que cada componente tenga su `Dockerfile`. Esto garantiza que el código que funciona en este servidor funcione igual en la Jetson de un robot o en la nube.
-* **Gestión de Permisos**: La carpeta `/opt/robita-lab` es compartida. Todo archivo debe pertenecer al grupo `robita-group`.
-    * *Comando de emergencia:* `sudo chown -R :robita-group /opt/robita-lab && sudo chmod -R 775 /opt/robita-lab`
-* **Git-Flow**: Consultar `GIT-FLOW.md`. Nunca trabajes directamente en `develop`. Crea una `feature/` para cada modificación.
-* **Agnosticismo**: Evita rutas absolutas. Usa variables de entorno para que el robot pueda encontrar sus servicios sin importar si la IP del servidor cambia.
-
----
-
-## 📡 5. Despliegue de Servicios
-Para iniciar el entorno de pruebas en este servidor:
 ```bash
 cd /opt/robita-lab
-docker-compose up -d
+cp .env.example .env          # editar audio y URL del cerebro
+./scripts/setup-venv.sh         # primera vez
+./scripts/launch.sh             # cerebro en :8000
+./scripts/udito.sh              # robot (otra terminal)
+```
+
+Parar cerebro: `./scripts/stop.sh`
+
+Probar solo texto:
+
+```bash
+curl -X POST http://127.0.0.1:8000/text-query \
+  -H "Content-Type: application/json" \
+  -d '{"text":"¿Quién eres?"}'
+```
+
+---
+
+## Variables de entorno (`.env`)
+
+| Variable | Uso |
+|----------|-----|
+| `ROBITA_SERVER_URL` | URL del orquestador (robot físico) |
+| `ROBITA_KNOWLEDGE_CORE` | Ruta al knowledge core |
+| `ROBITA_AUDIO_INPUT` | Índice micrófono (sounddevice) |
+| `ROBITA_AUDIO_OUTPUT` | Dispositivo ALSA (`default`, `plughw:X,Y`) |
+| `WHISPER_MODEL` | Modelo STT (`small`, etc.) |
+
+---
+
+## Git y GitHub
+
+```bash
+git status
+GITHUB_TOKEN=ghp_xxx ./scripts/push-github.sh
+```
+
+No commitear: `.env`, `.venv/`, `logs/`, cachés RAG (`data/rag_cache/`, `data/memory/`).
+
+---
+
+## Filosofía de trabajo
+
+1. Desarrollo en ramas `feature/` (ver `GIT-FLOW.md` si existe).
+2. Validación en este servidor (integración real entre servicios).
+3. `push` a GitHub cuando esté estable.
+4. Jetson / robots hacen `git pull` o usan imágenes Docker verificadas.
+
+---
+
+## Documentación adicional
+
+- [`DEPLOY_UDITO.md`](DEPLOY_UDITO.md) — servidor, Jetson, GitHub
+- [`03_ADAPTERS/robot-udit-physical/README.md`](03_ADAPTERS/robot-udit-physical/README.md) — adaptador físico
+- [`CURSOR_AGENT_PROMPT.md`](CURSOR_AGENT_PROMPT.md) — contexto para desarrollo con agentes
