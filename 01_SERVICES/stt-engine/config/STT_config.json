@@ -1,0 +1,24 @@
+{
+  "stt": {
+    "engine": "faster-whisper",
+    "model_name": "small",
+    "device": "cpu",
+    "compute_type": "int8",
+    "beam_size": 5,
+    "language": "es"
+  },
+  "audio_capture": {
+    "method": "sounddevice_block",
+    "sample_rate": 16000,
+    "channels": 1,
+    "record_duration_sec": 5.0
+  },
+  "preprocessing": {
+    "save_temp_wav": true,
+    "format": "PCM16"
+  },
+  "postprocessing": {
+    "strip_whitespace": true
+  }
+}
+

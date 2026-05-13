@@ -1,0 +1,25 @@
+{
+  "farewell": "Hasta luego.",
+  "not_understood": "No te he entendido.",
+  "thinking": "Déjame buscar esa información...",
+  "not_found": "Lo siento, no encontré información sobre eso.",
+  "error": "Tuve un problema al procesar tu consulta.",
+  "goodbye_keywords": [
+    "nada",
+    "adiós",
+    "adios",
+    "adicion",
+    "adio",
+    "chao",
+    "chau",
+    "hasta luego",
+    "hasta pronto",
+    "nos vemos",
+    "me voy",
+    "salir",
+    "fin",
+    "cerrar",
+    "terminar",
+    "bye"
+  ]
+}

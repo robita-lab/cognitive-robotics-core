@@ -1,0 +1,26 @@
+{
+  "wake_word": {
+    "name": "UDITO"
+  },
+  "model": {
+    "framework": "tflite",
+    "path": "wakeword/micro_model.tflite"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "dtype": "float32"
+  },
+  "detection": {
+    "wakeword_threshold": 0.49,
+    "hits_required": 2,
+    "cool_down_sec": 4.0,
+    "voice_margin": 2.0,
+    "calibrate_secs": 2.5,
+    "speech_margin": 2.0,
+    "silence_after_speech_sec": 1.2,
+    "max_record_sec": 8.0,
+    "min_speech_sec": 0.7,
+    "min_question_chars": 8
+  }
+}

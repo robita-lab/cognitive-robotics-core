@@ -1,0 +1,6 @@
+{
+  "model_path": "udito_model.net",
+  "wake_word": "UDITO",
+  "timeout": 0.1,
+  "sample_rate": 16000
+}
