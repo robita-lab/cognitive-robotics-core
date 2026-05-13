@@ -7,6 +7,7 @@ logs/
 *.pid
 .env
 .env.local
+token_github.txt
 *.code-workspace
 =*
 01_SERVICES/rag-engine/data/rag_cache/
