@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+logs/
+*.pid
+.env
+.env.local
+*.code-workspace
+=*
+01_SERVICES/rag-engine/data/rag_cache/
+01_SERVICES/rag-engine/data/memory/
+01_SERVICES/rag-engine/config/huggingface_token.txt

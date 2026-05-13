@@ -1,0 +1,74 @@
+version: "3.9"
+
+services:
+  stt-engine:
+    build: ./01_SERVICES/stt-engine
+    container_name: robita-stt
+    restart: unless-stopped
+    ports:
+      - "8001:8001"
+    environment:
+      - WHISPER_MODEL=${WHISPER_MODEL:-small}
+    volumes:
+      - whisper_cache:/root/.cache/huggingface
+
+  tts-engine:
+    build: ./01_SERVICES/tts-engine
+    container_name: robita-tts
+    restart: unless-stopped
+    ports:
+      - "8002:8002"
+
+  wakeword-engine:
+    build: ./01_SERVICES/wakeword-engine
+    container_name: robita-wakeword
+    restart: unless-stopped
+    ports:
+      - "8003:8003"
+
+  rag-engine:
+    build: ./01_SERVICES/rag-engine
+    container_name: robita-rag
+    restart: unless-stopped
+    ports:
+      - "8004:8004"
+    environment:
+      - ROBITA_KNOWLEDGE_CORE=/knowledge
+    volumes:
+      - rag_cache:/app/data/rag_cache
+      - ./04_KNOWLEDGE_CORE:/knowledge:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  pipeline-orchestrator:
+    build: ./01_SERVICES/pipeline-orchestrator
+    container_name: robita-orchestrator
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - STT_URL=http://stt-engine:8001
+      - TTS_URL=http://tts-engine:8002
+      - WW_URL=http://wakeword-engine:8003
+      - RAG_URL=http://rag-engine:8004
+      - ROBITA_KNOWLEDGE_CORE=/knowledge
+    volumes:
+      - ./04_KNOWLEDGE_CORE:/knowledge:ro
+    depends_on:
+      - stt-engine
+      - tts-engine
+      - wakeword-engine
+      - rag-engine
+
+volumes:
+  whisper_cache:
+  rag_cache:
+
+networks:
+  default:
+    name: robita-net

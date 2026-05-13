@@ -1,0 +1,6 @@
+# Archivo de ejemplo para el token de Hugging Face
+# 1. Copia este archivo como 'huggingface_token.txt'
+# 2. Reemplaza 'TU_TOKEN_AQUI' con tu token real de Hugging Face
+# 3. Obtén tu token en: https://huggingface.co/settings/tokens
+
+TU_TOKEN_AQUI
