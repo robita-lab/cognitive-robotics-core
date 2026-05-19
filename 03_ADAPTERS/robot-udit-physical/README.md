@@ -6,7 +6,7 @@ Sigue estos 3 pasos exactos en la terminal del dispositivo para realizar la inst
 ### Paso 1: Descargar el archivo del script
 Ejecuta el siguiente bloque para bajar el instalador y otorgarle permisos:
 
-curl -sL [https://raw.githubusercontent.com/robita-lab/cognitive-robotics-core/main/scripts/install.sh](https://raw.githubusercontent.com/robita-lab/cognitive-robotics-core/main/scripts/install_in_jetson.sh) -o install.sh$ chmod +x install_in_jetson.sh
+curl -sL [https://raw.githubusercontent.com/robita-lab/cognitive-robotics-core/main/scripts/install_in_jetson.sh](https://raw.githubusercontent.com/robita-lab/cognitive-robotics-core/main/scripts/install_in_jetson.sh) -o install_in_jetson.sh$ chmod +x install_in_jetson.sh
 
 ### Paso 2: Configurar las credenciales
 Puedes optar por una de las siguientes dos opciones:
