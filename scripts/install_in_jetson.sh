@@ -1,36 +1,41 @@
 #!/bin/bash
-echo "🤖 Iniciando instalación automatizada de UDITO (Jetson Edge)..."
 
-# 1. Pedir credenciales de forma segura
-read -p "👤 Ingresa tu usuario de GitHub: " GITHUB_USER
-read -s -p "🔑 Ingresa tu Token de GitHub (no se verá mientras escribes): " GITHUB_TOKEN
-echo ""
+# Comprobar si se ejecuta desde el directorio correcto al descargarse
+TARGET_DIR="/opt/robita-lab"
 
-TARGET_DIR="/opt/robita-lab/cognitive-robotics-core"
-
-# 2. Limpiar e inicializar la carpeta
-echo "📁 Preparando el entorno en $TARGET_DIR..."
-sudo rm -rf $TARGET_DIR
+echo "[SUDO] Solicitando permisos para configurar el directorio..."
 sudo mkdir -p $TARGET_DIR
-sudo chown -R $USER:$USER /opt/robita-lab
+sudo chown -R $USER:$USER $TARGET_DIR
 cd $TARGET_DIR
 
-# 3. Descarga (Sparse-Checkout)
-echo "📥 Descargando SOLO los módulos esenciales de IA y ROS2..."
-git init
-git remote add origin https://${GITHUB_USER}:${GITHUB_TOKEN}@github.com/robita-lab/cognitive-robotics-core.git
-git sparse-checkout init --cone
-git sparse-checkout set 01_SERVICES 02_AGENTS_FACTORY/udit-robot-brain 03_ADAPTERS/robot-udit-physical 04_KNOWLEDGE_CORE scripts
+# Solicitar credenciales de forma interactiva y segura
+read -p "👤 Ingresa tu usuario de GitHub: " GITHUB_USER
+read -s -p "🔑 Ingresa tu Token de GitHub: " GITHUB_TOKEN
+echo ""
 
-# 4. Traer el código
-git pull origin main
+echo "📁 Limpiando entorno previo..."
+rm -rf $TARGET_DIR/*
 
-# 5. Configurar variables de entorno
-echo "⚙️ Configurando archivo .env..."
-cp .env.example .env
+echo "📥 Descargando componentes de la Jetson..."
+TAR_URL="https://${GITHUB_USER}:${GITHUB_TOKEN}@api.github.com/repos/robita-lab/cognitive-robotics-core/tarball/main"
 
-# 6. Levantar la arquitectura completa
-echo "🚀 Compilando y levantando contenedores en Docker..."
+# Descarga y extrae omitiendo la carpeta raíz del Monorepositorio
+curl -sL $TAR_URL | tar -xz --strip-components=1 \
+    "*/01_SERVICES" \
+    "*/02_AGENTS_FACTORY/udit-robot-brain" \
+    "*/03_ADAPTERS/robot-udit-physical" \
+    "*/04_KNOWLEDGE_CORE" \
+    "*/scripts"
+
+echo "⚙️ Configurando variables de entorno..."
+if [ -f ".env.example" ]; then
+    cp .env.example .env
+    echo "✅ Archivo .env generado."
+else
+    echo "⚠️ .env.example no encontrado en el repositorio."
+fi
+
+echo "🚀 Iniciando contenedores en Docker..."
 sudo docker compose up --build -d
 
-echo "✅ ¡Instalación completada! El cerebro de UDITO está funcionando."
+echo "✅ Proceso finalizado con éxito."
