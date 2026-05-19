@@ -15,28 +15,26 @@ sudo mkdir -p $TARGET_DIR
 sudo chown -R $USER:$USER $TARGET_DIR
 
 echo "📁 Limpiando entorno..."
-# Evitamos borrar el script si se está ejecutando desde dentro de la carpeta
 find $TARGET_DIR -mindepth 1 -maxdepth 1 ! -name "install.sh" -exec rm -rf {} +
 
-echo "📥 Descargando componentes de la Jetson..."
+echo "📥 Descargando componentes y archivos de configuración..."
 TAR_URL="https://${GITHUB_USER}:${GITHUB_TOKEN}@api.github.com/repos/robita-lab/cognitive-robotics-core/tarball/main"
 
-# Se añade --wildcards para permitir la selección quirúrgica de carpetas en Ubuntu/Jetson
+# Descargamos las carpetas del dispositivo + los archivos de configuración de la raíz
 curl -sL $TAR_URL | tar -xz -C $TARGET_DIR --strip-components=1 --wildcards \
     "*/01_SERVICES" \
     "*/02_AGENTS_FACTORY/udit-robot-brain" \
     "*/03_ADAPTERS/robot-udit-physical" \
     "*/04_KNOWLEDGE_CORE" \
-    "*/scripts"
+    "*/scripts" \
+    "*/docker-compose.yml" \
+    "*/.env.example"
 
 cd $TARGET_DIR
 
-echo "⚙️ Configurando variables de entorno..."
+echo "⚙️ Creando entorno de configuración local..."
 if [ -f ".env.example" ]; then
     cp .env.example .env
 fi
 
-echo "🚀 Iniciando contenedores en Docker..."
-sudo docker compose up --build -d
-
-echo "✅ Proceso finalizado."
+echo "✅ Descarga completada. El dispositivo está listo para ser trasladado a entornos offline."
