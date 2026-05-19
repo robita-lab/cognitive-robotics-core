@@ -1,3 +1,32 @@
+#descargar repositorio especifico de UDITO en un dispositivo
+# 🤖 Despliegue de UDITO en Jetson Orin
+
+Sigue estos 3 pasos exactos en la terminal del dispositivo para realizar la instalación local:
+
+### Paso 1: Descargar el archivo del script
+Ejecuta el siguiente bloque para bajar el instalador y otorgarle permisos:
+
+$curl -sL [https://raw.githubusercontent.com/robita-lab/cognitive-robotics-core/main/scripts/install.sh](https://raw.githubusercontent.com/robita-lab/cognitive-robotics-core/main/scripts/install.sh) -o install.sh$ chmod +x install.sh
+
+### Paso 2: Configurar las credenciales
+Puedes optar por una de las siguientes dos opciones:
+
+* Opción A (Sin editar): No modifiques el archivo. Pasarás los datos directamente en el comando final.
+* Opción B (Manual): Abre el script con 'nano install.sh' y escribe tu usuario y token directamente en las variables superiores.
+
+### Paso 3: Ejecutar el script
+Si utilizas la Opción A, lanza el script pasando tu usuario y token como argumentos:
+
+$ ./install.sh TU_USUARIO_GITHUB TU_TOKEN_GITHUB
+
+Si utilizas la Opción B, simplemente ejecútalo de forma directa:
+
+$ ./install.sh
+
+
+
+---
+
 # Adaptador físico UDITO
 
 Código del **cuerpo** del robot: micrófono, wakeword, grabación VAD, saludo local (Piper) y consulta al **cerebro** por HTTP.
