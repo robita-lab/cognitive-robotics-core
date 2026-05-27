@@ -1,0 +1,42 @@
+{
+  "wake_word": {
+    "name": "UDITO"
+  },
+  "model": {
+    "framework": "openwakeword",
+    "path": "models/udito.onnx"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "channels": 1,
+    "dtype": "float32"
+  },
+  "detection": {
+    "wakeword_threshold": 0.52,
+    "wakeword_spike_range_min": 0.08,
+    "wakeword_peak_min": 0.68,
+    "wakeword_margin_min": 0.055,
+    "wakeword_rel_spike_min": 0.055,
+    "hits_required": 1,
+    "prob_smooth_window": 3,
+    "cool_down_sec": 2.5,
+    "post_playback_cooldown_sec": 2.0,
+    "post_greet_drain_sec": 0.15,
+    "voice_margin": 1.5,
+    "audio_pre_roll_sec": 0.6,
+    "speaker_lock_enabled": true,
+    "speaker_lock_threshold": 0.74,
+    "speaker_lock_min_ratio": 0.45,
+    "speaker_enroll_sec": 0.5,
+    "listen_onset_timeout_sec": 5.0,
+    "min_record_speech_sec": 1.1,
+    "min_stt_audio_sec": 0.85,
+    "reject_prob_at_or_above": 1.0,
+    "calibrate_secs": 2.5,
+    "speech_margin": 1.8,
+    "silence_after_speech_sec": 0.8,
+    "max_record_sec": 7.0,
+    "min_speech_sec": 0.5,
+    "min_question_chars": 6
+  }
+}

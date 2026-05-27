@@ -1,0 +1,92 @@
+{
+    "documents": {
+        "university_policies": {
+            "name": "Políticas Universitarias",
+            "description": "Documentos sobre políticas de calidad, medio ambiente y normativas generales",
+            "enabled": true,
+            "priority": 1,
+            "files": [
+                {
+                    "path": "../../04_KNOWLEDGE_CORE/raw-docs/UDIT-POLITICA-DE-CALIDAD-Y-M.AMBIENTE.pdf",
+                    "type": "pdf",
+                    "description": "Política de Calidad y Medio Ambiente UDIT",
+                    "enabled": true
+                }
+            ]
+        },
+        "academic_regulations": {
+            "name": "Regulaciones Académicas",
+            "description": "Normativas sobre acceso, admisión y extinción de titulaciones",
+            "enabled": true,
+            "priority": 2,
+            "files": [
+                {
+                    "path": "../../04_KNOWLEDGE_CORE/raw-docs/04_Normativa_AccesoyAdmision.pdf",
+                    "type": "pdf",
+                    "description": "Normativa de Acceso y Admisión",
+                    "enabled": true
+                },
+                {
+                    "path": "../../04_KNOWLEDGE_CORE/raw-docs/NormativaExtincionTitulacionesOficiales.pdf",
+                    "type": "pdf",
+                    "description": "Normativa de Extinción de Titulaciones Oficiales",
+                    "enabled": true
+                },
+                {
+                    "path": "../../04_KNOWLEDGE_CORE/raw-docs/06_Normativa-RAC.pdf",
+                    "type": "pdf",
+                    "description": "Normativa RAC",
+                    "enabled": true
+                }
+            ]
+        },
+        "general_conditions": {
+            "name": "Condiciones Generales",
+            "description": "Condiciones generales y términos de la universidad",
+            "enabled": true,
+            "priority": 3,
+            "files": [
+                {
+                    "path": "../../04_KNOWLEDGE_CORE/raw-docs/Condiciones_generales24.25.pdf",
+                    "type": "pdf",
+                    "description": "Condiciones Generales 2024-2025",
+                    "enabled": true
+                }
+            ]
+        },
+        "university_schedules": {
+            "name": "Horarios y Servicios",
+            "description": "Horarios de atención, servicios administrativos y académicos",
+            "enabled": true,
+            "priority": 4,
+            "files": [
+                {
+                    "path": "../../04_KNOWLEDGE_CORE/raw-docs/Horarios_UDIT.txt",
+                    "type": "txt",
+                    "description": "Horarios de Atención UDIT",
+                    "enabled": true
+                }
+            ]
+        }
+    },
+    "rag_settings": {
+        "chunk_size": 1000,
+        "chunk_overlap": 200,
+        "max_context_chunks": 5,
+        "similarity_threshold": 0.3,
+        "max_results": 10,
+        "embedding_model": "sentence-transformers/all-MiniLM-L6-v2",
+        "vector_store": "faiss",
+        "cache_dir": "data/rag_cache"
+    },
+    "llm": {
+        "backend": "tinyllama",
+        "tinyllama_model": "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    },
+    "fallback_settings": {
+        "use_gpt_for_general": false,
+        "use_gpt_for_unclear": false,
+        "max_retries": 2,
+        "confidence_threshold": 0.6
+    }
+}

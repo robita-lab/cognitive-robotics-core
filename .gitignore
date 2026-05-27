@@ -1,0 +1,26 @@
+.env
+.env.local
+.venv/
+logs/*.log
+logs/*.pid
+_archive/historial/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+*.swp
+
+# Modelos y cachés (descargar con scripts/download-offline-models.sh)
+data/huggingface/
+01_SERVICES/rag-engine/data/rag_cache/
+01_SERVICES/rag-engine/data/memory/
+
+# Piper + voces (instalar en Jetson: scripts/install-piper-aarch64.sh + download-piper-voices-*.sh)
+01_SERVICES/tts-engine/piper/
+
+# Binarios locales
+*.x86_64.bak
+
+# Temporales UDITO
+/tmp/udito_speech_out.json

@@ -1,0 +1,6 @@
+{
+  "voice_rate": 150,
+  "voice_volume": 0.9,
+  "voice_model": "es_ES-davefx-medium.onnx",
+  "assistant_name": "UDITO"
+}
