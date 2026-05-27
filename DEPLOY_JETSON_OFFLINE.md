@@ -8,6 +8,12 @@ Repositorio: [cognitive-robotics-core](https://github.com/robita-lab/cognitive-r
 
 Ruta estándar: `/opt/robita-lab`
 
+**Rama Git:** usa **`jetson-udito-offline`** (no `main`). Es la rama más actualizada para UDITO en robot físico. Ver tabla en [README.md](README.md#ramas-del-repositorio).
+
+```bash
+git clone -b jetson-udito-offline https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
+```
+
 ---
 
 ## Qué modo usar

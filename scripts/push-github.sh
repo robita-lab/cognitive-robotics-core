@@ -24,12 +24,16 @@ fi
 MSG="${1:-feat(jetson): UDITO offline Jetson — voz, RAG y conocimiento}"
 git commit -m "$MSG"
 
+BRANCH="${ROBITA_GIT_BRANCH:-jetson-udito-offline}"
+
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
-  git pull --rebase origin main 2>/dev/null || git pull origin main --allow-unrelated-histories 2>/dev/null || true
-  git push "https://${GITHUB_TOKEN}@github.com/robita-lab/cognitive-robotics-core.git" HEAD:main
+  git fetch origin "$BRANCH" 2>/dev/null || true
+  git pull --rebase "https://x-access-token:${GITHUB_TOKEN}@github.com/robita-lab/cognitive-robotics-core.git" "$BRANCH" 2>/dev/null || true
+  git push "https://x-access-token:${GITHUB_TOKEN}@github.com/robita-lab/cognitive-robotics-core.git" "HEAD:${BRANCH}"
+  echo "Subido a origin/${BRANCH}"
 else
   echo ""
-  echo "Commit creado. Para subir a GitHub:"
+  echo "Commit creado. Para subir a GitHub (rama ${BRANCH}):"
   echo "  GITHUB_TOKEN=ghp_xxx $0 \"$MSG\""
-  echo "  o: git push -u origin main"
+  echo "  o: git push -u origin HEAD:${BRANCH}"
 fi
