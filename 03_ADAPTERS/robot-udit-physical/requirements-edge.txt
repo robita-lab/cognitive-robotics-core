@@ -1,6 +1,6 @@
-# Dependencias mínimas en Jetson (solo cuerpo / etapa 2)
+# Dependencias mínimas en Jetson (cuerpo / standalone)
 numpy>=1.26.0
 sounddevice>=0.4.6
-tensorflow>=2.15.0
 httpx>=0.27.0
-# Piper TTS local (bienvenida): copiar carpeta 01_SERVICES/tts-engine/piper y config
+# Wakeword (tensorflow.lite; en ARM probar tflite-runtime si numpy<2)
+tensorflow>=2.15.0

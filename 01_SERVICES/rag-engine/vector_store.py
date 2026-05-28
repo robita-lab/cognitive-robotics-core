@@ -6,12 +6,15 @@ Usa FAISS para almacenar y buscar embeddings de documentos
 
 import logging
 import os
+import threading
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
 import json
 import numpy as np
 import pickle
 from datetime import datetime
+
+_ENCODE_LOCK = threading.Lock()
 
 # Configurar logging
 logging.basicConfig(
@@ -37,9 +40,12 @@ class VectorStore:
         self.chunks = []
         self.chunk_embeddings = []
         
-        # Cargar modelo de embeddings
-        self._load_embedding_model()
-        
+        # Embeddings bajo demanda (ahorra RAM hasta primera búsqueda/indexado)
+
+    def _ensure_embedding_model(self):
+        if self.embedding_model is None:
+            self._load_embedding_model()
+
     def _load_config(self) -> Dict[str, Any]:
         """Carga la configuración"""
         try:
@@ -77,6 +83,7 @@ class VectorStore:
     
     def get_embedding(self, text: str) -> np.ndarray:
         """Obtiene el embedding de un texto"""
+        self._ensure_embedding_model()
         try:
             if self.embedding_model is None:
                 raise ValueError("Modelo de embeddings no cargado")
@@ -87,8 +94,14 @@ class VectorStore:
                 return np.zeros(self.embedding_model.get_sentence_embedding_dimension())
             
             # Generar embedding
-            embedding = self.embedding_model.encode(text, convert_to_numpy=True)
-            return embedding
+            with _ENCODE_LOCK:
+                embedding = self.embedding_model.encode(
+                    text,
+                    convert_to_numpy=True,
+                    show_progress_bar=False,
+                    batch_size=1,
+                )
+            return np.asarray(embedding, dtype=np.float32)
             
         except Exception as e:
             logger.error(f"Error al generar embedding: {e}")
@@ -106,10 +119,13 @@ class VectorStore:
                 return
             
             logger.info(f"Agregando {len(chunks)} chunks al vector store")
+            self._ensure_embedding_model()
             
             # Generar embeddings para todos los chunks
             texts = [chunk['text'] for chunk in chunks]
-            embeddings = self.embedding_model.encode(texts, convert_to_numpy=True)
+            embeddings = self.embedding_model.encode(
+                texts, convert_to_numpy=True, show_progress_bar=False,
+            )
             
             # Agregar a la lista
             self.chunks.extend(chunks)
@@ -120,7 +136,13 @@ class VectorStore:
         except Exception as e:
             logger.error(f"Error al agregar chunks: {e}")
     
-    def search(self, query: str, top_k: int = None, threshold: float = None) -> List[Dict[str, Any]]:
+    def search(
+        self,
+        query: str,
+        top_k: int = None,
+        threshold: float = None,
+        query_embedding: Optional[np.ndarray] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Busca chunks similares a una consulta
         
@@ -142,10 +164,11 @@ class VectorStore:
             if threshold is None:
                 threshold = self.rag_settings['similarity_threshold']
             
-            # Generar embedding de la consulta
-            query_embedding = self.get_embedding(query)
-            
-            # Calcular similitudes
+            if query_embedding is None:
+                query_embedding = self.get_embedding(query)
+            else:
+                query_embedding = np.asarray(query_embedding, dtype=np.float32)
+
             similarities = []
             for i, chunk_embedding in enumerate(self.chunk_embeddings):
                 similarity = self._cosine_similarity(query_embedding, chunk_embedding)
@@ -170,7 +193,13 @@ class VectorStore:
             logger.error(f"Error en búsqueda: {e}")
             return []
     
-    def search_by_category(self, query: str, category: str, top_k: int = None) -> List[Dict[str, Any]]:
+    def search_by_category(
+        self,
+        query: str,
+        category: str,
+        top_k: int = None,
+        query_embedding: Optional[np.ndarray] = None,
+    ) -> List[Dict[str, Any]]:
         """
         Busca chunks similares dentro de una categoría específica
         
@@ -196,10 +225,11 @@ class VectorStore:
                 logger.warning(f"No hay chunks en la categoría: {category}")
                 return []
             
-            # Generar embedding de la consulta
-            query_embedding = self.get_embedding(query)
-            
-            # Calcular similitudes
+            if query_embedding is None:
+                query_embedding = self.get_embedding(query)
+            else:
+                query_embedding = np.asarray(query_embedding, dtype=np.float32)
+
             similarities = []
             for i, chunk_embedding in enumerate(category_embeddings):
                 similarity = self._cosine_similarity(query_embedding, chunk_embedding)

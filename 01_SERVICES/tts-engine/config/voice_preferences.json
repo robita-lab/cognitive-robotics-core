@@ -1,0 +1,11 @@
+{
+  "1": "es_ES-carlfm-x_low.onnx",
+  "2": "es_ES-davefx-medium.onnx",
+  "default": "es_ES-davefx-medium.onnx",
+  "rejected": ["es_MX-ald-medium.onnx"],
+  "notes": {
+    "1": "España · muy baja · robótica (reservada)",
+    "2": "España · media · davefx (uso normal)",
+    "es_MX-ald-medium.onnx": "descartada: muy lenta"
+  }
+}

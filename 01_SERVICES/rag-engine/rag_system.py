@@ -6,6 +6,8 @@ Combina procesamiento de documentos, vector store y clasificación de preguntas
 
 import logging
 import json
+import os
+import re
 from typing import Dict, Any, List, Optional
 from pathlib import Path
 import time
@@ -22,6 +24,15 @@ from rag_manager import RAGManager
 from memory import MemoryManager
 from gemma_llm import GemmaLLM
 from basic_qa_manager import BasicQAManager
+from conversational_answer import conversational_from_context
+from load_responses import (
+    match_fun_request,
+    match_knowledge_text,
+    random_fun_fact,
+    random_joke,
+    read_knowledge_file,
+    spoken_udit_address,
+)
 
 # Configurar logging
 logging.basicConfig(
@@ -29,6 +40,20 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger("RAGSystem")
+
+_RAG_NO_RESULTS_ANSWER = (
+    "No tengo ese dato en los documentos que manejo. "
+    "Si es un trámite, una normativa o algo muy concreto, lo mejor es que lo preguntes en Secretaría "
+    "o en la web oficial de la universidad. "
+    "¿Quieres que busque horarios, sedes u otro tema de la guía?"
+)
+
+
+def _rag_min_similarity() -> float:
+    try:
+        return float(os.getenv("ROBITA_RAG_MIN_SIMILARITY", "0.38"))
+    except ValueError:
+        return 0.38
 
 
 class RAGSystem:
@@ -50,9 +75,8 @@ class RAGSystem:
         self.rag_manager = RAGManager(config_path)
         self.memory_manager = MemoryManager(_settings)
         
-        # Inicializar LLM Gemma
         self.llm = None
-        self._initialize_llm()
+        self._llm_initialized = False
         
         # Inicializar gestor de respuestas básicas
         self.basic_qa_manager = BasicQAManager(qa_data=_qa_from_config())
@@ -63,6 +87,18 @@ class RAGSystem:
         
         logger.info("Sistema RAG inicializado")
     
+    def _ensure_llm(self) -> None:
+        """Carga el LLM solo si ROBITA_USE_LLM=1 (evita RAM en Jetson)."""
+        if self._llm_initialized:
+            return
+        use_llm = os.getenv("ROBITA_USE_LLM", "0").strip().lower() in ("1", "true", "yes")
+        if not use_llm:
+            self.llm = None
+            self._llm_initialized = True
+            return
+        self._initialize_llm()
+        self._llm_initialized = True
+
     def _initialize_llm(self):
         """Inicializa el LLM según config: tinyllama o gemma"""
         try:
@@ -72,6 +108,11 @@ class RAGSystem:
                     config = json.load(f)
             llm_cfg = config.get("llm", {})
             backend = (llm_cfg.get("backend") or "gemma").lower()
+            if backend in ("none", "off", "disabled"):
+                logger.info("LLM desactivado (backend=%s) — solo Q&A básico y contexto documental", backend)
+                self.llm = None
+                self._llm_initialized = True
+                return
             if backend == "tinyllama":
                 from tiny_llm import TinyLlamaLLM
                 model_name = llm_cfg.get("tinyllama_model", "TinyLlama/TinyLlama-1.1B-Chat-v1.0")
@@ -83,9 +124,11 @@ class RAGSystem:
                 logger.info("Inicializando LLM Gemma 2B...")
                 self.llm = GemmaLLM()
                 logger.info("✅ LLM Gemma 2B inicializado correctamente")
+            self._llm_initialized = True
         except Exception as e:
             logger.error(f"Error al inicializar LLM: {e}")
             self.llm = None
+            self._llm_initialized = True
     
     def initialize(self, force_rebuild: bool = False):
         """
@@ -241,6 +284,12 @@ class RAGSystem:
                 return True
         return False
     
+    def is_fast_answer(self, query: str) -> bool:
+        """True si la consulta se responde sin búsqueda vectorial (saludo, identidad, etc.)."""
+        if not self.is_initialized:
+            return False
+        return self.basic_qa_manager.find_basic_answer(query) is not None
+
     def process_query(self, query: str) -> Dict[str, Any]:
         """
         Procesa una consulta usando el sistema RAG.
@@ -264,6 +313,51 @@ class RAGSystem:
                     "classification": {"query_type": basic_answer["type"], "confidence": 1.0},
                 }
 
+            fun_kind = match_fun_request(query)
+            if fun_kind == "curious_fact":
+                return {
+                    "answer": random_fun_fact(),
+                    "emotion": "happy",
+                    "source": "fun_fact",
+                    "classification": {"query_type": "fun", "confidence": 1.0},
+                }
+            if fun_kind == "joke":
+                return {
+                    "answer": random_joke(),
+                    "emotion": "happy",
+                    "source": "fun_joke",
+                    "needs_laugh": True,
+                    "classification": {"query_type": "fun", "confidence": 1.0},
+                }
+
+            ql = query_lower
+            if any(
+                k in ql
+                for k in (
+                    "direccion", "dirección", "sede", "sedes", "donde esta",
+                    "donde queda", "ubicacion", "ubicación", "campus",
+                )
+            ):
+                return {
+                    "answer": spoken_udit_address(),
+                    "emotion": "informative",
+                    "source": "knowledge_address",
+                    "classification": {"query_type": "university", "confidence": 1.0},
+                }
+
+            know = match_knowledge_text(query)
+            if know:
+                know_text, know_src = know
+                if know_src == "knowledge_horarios":
+                    body = read_knowledge_file("udit_horarios.txt")
+                    know_text = conversational_from_context(query, body) if body else _RAG_NO_RESULTS_ANSWER
+                return {
+                    "answer": know_text,
+                    "emotion": "informative" if "address" in know_src else "helpful",
+                    "source": know_src,
+                    "classification": {"query_type": "knowledge", "confidence": 1.0},
+                }
+
             # Palabras que indican pregunta académica/universitaria → ir al RAG documental
             academic_keywords = [
                 'titulación', 'titulacion', 'vías', 'vias', 'normativa', 'normativas',
@@ -277,18 +371,21 @@ class RAGSystem:
             ]
             is_academic_query = self._query_has_academic_intent(query_lower, academic_keywords)
 
-            if (
-                self._query_has_word(query_lower, "udit")
-                and any(
-                    p in query_lower
-                    for p in ("direccion", "dirección", "sede", "sedes", "donde esta", "dónde está")
+            if any(
+                p in query_lower
+                for p in (
+                    "direccion", "dirección", "direcciones", "sede", "sedes",
+                    "donde esta", "dónde está", "donde queda", "dónde queda", "ubicacion", "ubicación",
+                    "campus", "domicilio", "calle", "avenida",
                 )
+            ) and any(
+                w in query_lower for w in ("universidad", "udit", "facultad", "centro")
             ):
-                addr = _fixed_answer("udit_address")
+                addr = spoken_udit_address()
                 if addr:
                     return {
                         "answer": addr,
-                        "emotion": "neutral",
+                        "emotion": "informative",
                         "source": "fixed_udit_address",
                         "classification": {"query_type": "university", "confidence": 1.0},
                     }
@@ -298,7 +395,10 @@ class RAGSystem:
             logger.info("Consulta clasificada como: %s (confianza: %.2f)", classification['query_type'], classification['confidence'])
             
             query_embedding = self.vector_store.get_embedding(query)
-            memory_context = self.memory_manager.get_context(query, query_embedding)
+            if os.getenv("ROBITA_LOW_MEMORY", "").strip().lower() in ("1", "true", "yes"):
+                memory_context = []
+            else:
+                memory_context = self.memory_manager.get_context(query, query_embedding)
             
             # Preguntas universitarias o con palabras académicas → RAG
             use_rag = (
@@ -318,48 +418,68 @@ class RAGSystem:
                 ])
                 
                 # Buscar en vector store
-                search_results = self.vector_store.search(query)
+                search_results = self.vector_store.search(query, query_embedding=query_embedding)
                 
                 if search_results:
-                    # Si es pregunta sobre horarios, priorizar información de horarios
-                    if is_schedule_query:
-                        # Buscar específicamente en la categoría de horarios
-                        schedule_results = self.vector_store.search_by_category(query, "university_schedules", top_k=5)
-                        
-                        # Combinar resultados, priorizando horarios
-                        if schedule_results:
-                            # Agregar resultados de horarios al inicio
-                            combined_results = schedule_results + search_results
-                            # Eliminar duplicados manteniendo el orden
-                            seen = set()
-                            unique_results = []
-                            for result in combined_results:
-                                result_id = f"{result['source_file']}_{result['chunk_id']}"
-                                if result_id not in seen:
-                                    seen.add(result_id)
-                                    unique_results.append(result)
-                            search_results = unique_results[:10]  # Mantener solo los primeros 10
-                            
-                            logger.info(f"Pregunta sobre horarios detectada, priorizando información de horarios")
-                    
-                    # Construir contexto
-                    context_text = "\n".join([
-                        f"Documento {i+1} ({result['category_name']}): {result['text']}"
-                        for i, result in enumerate(search_results[:3])
-                    ])
-                    
-                    # Generar respuesta usando el contexto
-                    response = self._generate_rag_response(query, context_text, memory_context)
-                    response['source'] = 'rag'
-                    response['search_results'] = search_results
-                    
+                    best_sim = max(r.get("similarity", 0.0) for r in search_results)
+                    if best_sim < _rag_min_similarity():
+                        logger.info(
+                            "Similitud baja (%.3f < %.3f); no usar documentos",
+                            best_sim,
+                            _rag_min_similarity(),
+                        )
+                        response = {
+                            "answer": _RAG_NO_RESULTS_ANSWER,
+                            "emotion": "sorry",
+                            "source": "rag_low_confidence",
+                            "search_results": search_results,
+                        }
+                    else:
+                        if any(
+                            k in query_lower
+                            for k in (
+                                "direccion", "dirección", "sede", "donde", "ubicacion",
+                                "ubicación", "calle", "barcelona", "madrid",
+                            )
+                        ):
+                            response = {
+                                "answer": spoken_udit_address(),
+                                "emotion": "informative",
+                                "source": "fixed_udit_address",
+                                "search_results": search_results,
+                            }
+                        elif is_schedule_query:
+                            schedule_results = self.vector_store.search_by_category(
+                                query, "university_schedules", top_k=5, query_embedding=query_embedding,
+                            )
+                            if schedule_results:
+                                combined_results = schedule_results + search_results
+                                seen = set()
+                                unique_results = []
+                                for result in combined_results:
+                                    result_id = f"{result['source_file']}_{result['chunk_id']}"
+                                    if result_id not in seen:
+                                        seen.add(result_id)
+                                        unique_results.append(result)
+                                search_results = unique_results[:10]
+                                logger.info(
+                                    "Pregunta sobre horarios detectada, priorizando información de horarios"
+                                )
+
+                        context_text = "\n".join([
+                            f"Documento {i+1} ({result['category_name']}): {result['text']}"
+                            for i, result in enumerate(search_results[:3])
+                        ])
+                        response = self._generate_rag_response(query, context_text, memory_context)
+                        response['source'] = 'rag'
+                        response['search_results'] = search_results
+
                 else:
-                    # No se encontró información relevante en los documentos → respuesta amable
                     response = {
-                        "answer": "No encontré información específica sobre eso en los documentos que tengo. Te recomiendo consultar en Secretaría o en la web de la universidad para detalles sobre trámites y normativa. ¿Quieres que busque otro tema?",
-                        "emotion": "neutral",
+                        "answer": _RAG_NO_RESULTS_ANSWER,
+                        "emotion": "sorry",
                         "source": "rag_no_results",
-                        "search_results": []
+                        "search_results": [],
                     }
                     
             else:
@@ -369,7 +489,8 @@ class RAGSystem:
                 response['source'] = 'gpt'
             
             # Actualizar memoria
-            self.memory_manager.add_memory(query, response['answer'], query_embedding)
+            if os.getenv("ROBITA_LOW_MEMORY", "").strip().lower() not in ("1", "true", "yes"):
+                self.memory_manager.add_memory(query, response['answer'], query_embedding)
             
             # Agregar metadatos de clasificación
             response['classification'] = classification
@@ -388,6 +509,7 @@ class RAGSystem:
     def _generate_rag_response(self, query: str, context: str, memory_context: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Genera respuesta usando RAG con el LLM configurado (TinyLlama o Gemma)."""
         try:
+            self._ensure_llm()
             # Si tenemos LLM disponible, usarlo para generar respuesta natural
             if self.llm and self.llm.is_initialized:
                 llm_name = getattr(self.llm, "get_model_info", lambda: {})().get("model_type", "LLM")
@@ -410,55 +532,8 @@ class RAGSystem:
                 logger.info("Respuesta generada exitosamente con LLM")
                 
             else:
-                # Fallback: respuesta mejorada y más amigable
-                logger.warning("LLM no disponible, usando respuesta mejorada")
-                
-                # Construir contexto de memoria
-                memory_text = ""
-                if memory_context:
-                    memory_text = "\n\nContexto previo:\n" + "\n".join([
-                        f"- {item['query']}: {item['answer']}"
-                        for item in memory_context[:2]
-                    ])
-                
-                # Detectar si es pregunta sobre horarios
-                query_lower = query.lower()
-                is_schedule_query = any(word in query_lower for word in [
-                    'horario', 'horarios', 'hora', 'abre', 'cierra', 'atención', 
-                    'administrativa', 'biblioteca', 'secretaría', 'matrícula',
-                    'servicios', 'atención al público', 'cuándo', 'a qué hora'
-                ])
-                
-                # Analizar el contexto para generar una respuesta más específica
-                context_lines = context.split('\n')
-                relevant_info = []
-                
-                # Buscar información más relevante basada en palabras clave de la consulta
-                query_words = query.lower().split()
-                
-                for line in context_lines:
-                    # Calcular relevancia de la línea
-                    relevance_score = sum(1 for word in query_words if word in line.lower())
-                    if relevance_score > 0:
-                        relevant_info.append((line, relevance_score))
-                
-                # Ordenar por relevancia
-                relevant_info.sort(key=lambda x: x[1], reverse=True)
-                
-                if relevant_info:
-                    # Usar las líneas más relevantes
-                    top_relevant = [line for line, score in relevant_info[:5]]
-                    specific_context = "\n".join(top_relevant)
-                    
-                    # Generar respuesta más natural y amigable
-                    if is_schedule_query:
-                        response_text = self._generate_friendly_schedule_response(query_lower, specific_context)
-                    else:
-                        response_text = self._generate_friendly_general_response(query_lower, specific_context)
-                        
-                else:
-                    # Usar todo el contexto si no hay coincidencias específicas
-                    response_text = f"Te ayudo con la información que tengo disponible sobre la universidad:\n\n{context}\n\n¿Hay algo específico que te gustaría saber?"
+                logger.info("Respuesta conversacional desde documentos (sin leer la guía)")
+                response_text = conversational_from_context(query, context)
             
             response = {
                 "answer": response_text,
@@ -476,6 +551,25 @@ class RAGSystem:
                 "llm_used": False
             }
     
+    def _direct_document_answer(self, query: str, context: str) -> str:
+        """Respuesta hablada = contenido del documento (sin frases de relleno)."""
+        query_lower = query.lower()
+        lines: list[str] = []
+        for raw in context.split("\n"):
+            line = raw.strip()
+            if not line:
+                continue
+            if line.startswith("Documento ") and ":" in line:
+                line = line.split(":", 1)[1].strip()
+            if line:
+                lines.append(line)
+        body = "\n".join(lines[:14]).strip()
+        if not body:
+            return "No encontré esa información en los documentos de la universidad."
+        if any(k in query_lower for k in ("horario", "horarios", "hora", "abre", "cierra")):
+            return f"Horarios oficiales de la universidad:\n{body}"
+        return body
+
     def _generate_friendly_schedule_response(self, query_lower: str, context: str) -> str:
         """Genera respuesta amigable para preguntas sobre horarios"""
         # Extraer horas del contexto
@@ -606,16 +700,12 @@ class RAGSystem:
         return response
     
     def _generate_gpt_response(self, query: str, memory_context: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Genera respuesta usando GPT para preguntas generales"""
+        """Preguntas fuera del ámbito universitario: sin inventar datos."""
         try:
-            # Por ahora, devolvemos una respuesta simple
-            # En el futuro, aquí se integraría con GPT
-            response = {
-                "answer": f"Para tu pregunta sobre '{query}', te puedo ayudar con información general. Sin embargo, para detalles específicos de la universidad, te recomiendo consultar los documentos oficiales.",
-                "emotion": "helpful"
+            return {
+                "answer": _RAG_NO_RESULTS_ANSWER,
+                "emotion": "sorry",
             }
-            
-            return response
             
         except Exception as e:
             logger.error(f"Error al generar respuesta GPT: {e}")

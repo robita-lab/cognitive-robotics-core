@@ -1,8 +1,9 @@
 {
   "farewell": "Hasta luego.",
-  "not_understood": "No te he entendido.",
+  "not_understood": "No te he entendido bien. Repite la pregunta, por favor.",
+  "not_owner": "Solo respondo a la persona que me activó con «udito».",
   "thinking": "Déjame buscar esa información...",
-  "not_found": "Lo siento, no encontré información sobre eso.",
+  "not_found": "No tengo ese dato en mis documentos. Si es un trámite o normativa, te conviene preguntar en Secretaría o mirar la web de la universidad.",
   "error": "Tuve un problema al procesar tu consulta.",
   "goodbye_keywords": [
     "nada",

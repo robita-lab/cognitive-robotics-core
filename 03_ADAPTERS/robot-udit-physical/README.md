@@ -1,7 +1,19 @@
-#descargar repositorio especifico de UDITO en un dispositivo
-# 🤖 Despliegue de UDITO en Jetson Orin
+# 🤖 Adaptador físico UDITO
 
-Sigue estos 3 pasos exactos en la terminal del dispositivo para realizar la instalación local:
+**Instalación Jetson offline (recomendado):** [DEPLOY_JETSON_OFFLINE.md](../../DEPLOY_JETSON_OFFLINE.md)
+
+```bash
+cd /opt/robita-lab
+./scripts/setup-jetson-offline.sh
+./scripts/download-offline-models.sh
+./scripts/udito_standalone.sh
+```
+
+---
+
+## Instalación legacy (tarball + token)
+
+Sigue estos 3 pasos si usas el instalador antiguo con token GitHub:
 
 ### Paso 1: Descargar el archivo del script
 Ejecuta el siguiente bloque para bajar el instalador y otorgarle permisos:
@@ -87,7 +99,7 @@ cp .env.example .env
 | `ROBITA_AUDIO_OUTPUT` | Altavoz ALSA (`default` o `plughw:3,0`) |
 | `ROBITA_KNOWLEDGE_CORE` | Textos de saludo/aviso locales |
 
-Probar audio: `../../scripts/test-audio.sh`
+Probar audio: `../../scripts/test-audio-standalone.sh`
 
 ---
 
@@ -128,6 +140,8 @@ Tras cambiar despedida o Q&A, reiniciar el cerebro: `./scripts/stop.sh && ./scri
 
 ## Wakeword
 
-- Modelo: `01_SERVICES/wakeword-engine/micro_model.tflite`
-- Lógica: `01_SERVICES/wakeword-engine/Detector_wakeword.py`
+- Motor (Jetson, **por defecto**): **openWakeWord** — `oww_detector.py`
+- Modelo: `01_SERVICES/wakeword-engine/models/udito.onnx`
+- Setup: `./scripts/setup-wakeword-oww.sh`
+- **Windows:** no usar openWakeWord en este pipeline; usar TFLite — ver `01_SERVICES/wakeword-engine/README.md`
 - Umbral y calibración: `robot_common.py` + `wake_word_config.json`
