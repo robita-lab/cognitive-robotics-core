@@ -1,0 +1,125 @@
+{
+  "request_keywords": {
+    "curious_fact": [
+      "dato curioso",
+      "dato curiosos",
+      "curiosidad",
+      "algo curioso",
+      "cuéntame algo curioso",
+      "cuentame algo curioso",
+      "dime algo curioso",
+      "sabías que",
+      "sabias que",
+      "un dato",
+      "cultura general",
+      "sorpréndeme",
+      "sorprendeme",
+      "melato curioso",
+      "dato curioso"
+    ],
+    "joke": [
+      "chiste",
+      "cuéntame un chiste",
+      "cuentame un chiste",
+      "dime un chiste",
+      "algo gracioso",
+      "hazme reír",
+      "hazme reir",
+      "ríete",
+      "riete",
+      "broma",
+      "cuéntame algo gracioso",
+      "cuentame algo gracioso"
+    ]
+  },
+  "intro_templates": {
+    "sabias_que": "¿Sabías que {body}?",
+    "imaginate_que": "Imagínate que {body}."
+  },
+  "laugh_lines_comment": "Obsoleto: la risa es sonido sintetico (udito_speech), no TTS de estas frases.",
+  "laugh_lines": [],
+  "curious_facts": [
+    {
+      "intro": "sabias_que",
+      "body": "los pulpos tienen tres corazones y sangre azul"
+    },
+    {
+      "intro": "sabias_que",
+      "body": "la miel no caduca: se han encontrado tarros comestibles en tumbas egipcias"
+    },
+    {
+      "intro": "imaginate_que",
+      "body": "un rayo es cinco veces más caliente que la superficie del Sol"
+    },
+    {
+      "intro": "sabias_que",
+      "body": "los flamencos son grises al nacer y se vuelven rosas por lo que comen"
+    },
+    {
+      "intro": "imaginate_que",
+      "body": "en Venus un día dura más que un año: el planeta tarda más en girar que en orbitar al Sol"
+    }
+  ],
+  "jokes": [
+    {
+      "text": "¿Qué le dice un semáforo a otro? No me mires, que me estoy cambiando."
+    },
+    {
+      "text": "¿Por qué los pájaros vuelan al sur en invierno? Porque caminando tardarían mucho."
+    },
+    {
+      "text": "¿Cuál es el colmo de un electricista? Tener muy mala corriente."
+    },
+    {
+      "text": "¿Qué hace una abeja en el gimnasio? Zumba."
+    },
+    {
+      "text": "¿Cómo se despiden dos químicos? Ácido un adiós."
+    },
+    {
+      "text": "¿Qué le dice un techo a otro? Techo de menos."
+    },
+    {
+      "text": "¿Por qué el libro de matemáticas está triste? Porque tiene demasiados problemas."
+    },
+    {
+      "text": "¿Qué hace un pez cuando está aburrido? Nada."
+    },
+    {
+      "text": "¿Cuál es el animal más antiguo del mundo? La cebra, porque está en blanco y negro."
+    },
+    {
+      "text": "¿Qué le dice un jaguar a otro jaguar? Jaguar you."
+    },
+    {
+      "text": "¿Por qué los esqueletos no pelean? Porque no tienen agallas."
+    },
+    {
+      "text": "¿Qué hace una vaca en el espacio? Vaca-uum."
+    },
+    {
+      "text": "¿Cómo se llama un boomerang que no vuelve? Palo."
+    },
+    {
+      "text": "¿Qué le dice un cactus a otro? ¡Eres una espina en mi costado!"
+    },
+    {
+      "text": "¿Por qué los pájaros no usan Facebook? Porque ya tienen Twitter."
+    },
+    {
+      "text": "¿Qué hace un perro con un taladro? Taladrando."
+    },
+    {
+      "text": "¿Cuál es el café más peligroso del mundo? El ex-preso."
+    },
+    {
+      "text": "¿Qué le dice un tomate a otro tomate? Tomatémonos un café."
+    },
+    {
+      "text": "¿Por qué los pájaros no van al colegio? Porque ya saben volar."
+    },
+    {
+      "text": "¿Qué hace un pez en la biblioteca? Nada, pero lee mucho."
+    }
+  ]
+}

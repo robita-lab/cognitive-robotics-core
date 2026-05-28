@@ -22,13 +22,8 @@ class PiperTTS:
         """Inicializa el TTS de Piper"""
         self.config_path = config_path
         self.config = self._load_config()
-        # Raíz del proyecto = carpeta UDITO que contiene config/ y piper/
-        config_file = Path(config_path).resolve()
-        if config_file.exists():
-            self._root = config_file.parent.parent if config_file.name == "tts_config.json" else config_file.parent
-        else:
-            self._root = Path(__file__).resolve().parent.parent.parent  # src/tts -> UDITO
-        # Rutas a Piper (respecto a la raíz del proyecto)
+        # Piper y voces viven siempre junto a este módulo (tts-engine/), no junto al JSON de config.
+        self._root = Path(__file__).resolve().parent
         self.piper_path = self._root / "piper" / "piper"
         if not self.piper_path.exists():
             self.piper_path = self._root / "piper" / "piper.exe"
@@ -85,6 +80,21 @@ class PiperTTS:
         except Exception as e:
             logger.error(f"Error al guardar configuración: {e}")
     
+    def _piper_inference_args(self, overrides: dict | None = None) -> list[str]:
+        """Parámetros opcionales (--length_scale, etc.) desde config o overrides por emoción."""
+        cfg = {**self.config, **(overrides or {})}
+        args: list[str] = []
+        for key, flag in (
+            ("noise_scale", "--noise_scale"),
+            ("length_scale", "--length_scale"),
+            ("noise_w", "--noise_w"),
+            ("sentence_silence", "--sentence_silence"),
+        ):
+            val = cfg.get(key)
+            if val is not None:
+                args.extend([flag, str(val)])
+        return args
+
     def _initialize_voice(self):
         """Inicializa la voz de Piper"""
         self._voice_path = None
@@ -132,7 +142,8 @@ class PiperTTS:
                 cmd = [
                     str(self.piper_path),
                     '--model', str(self._voice_path),
-                    '--output_file', temp_audio_path
+                    '--output_file', temp_audio_path,
+                    *self._piper_inference_args(),
                 ]
             else:
                 logger.error("No hay modelo de voz configurado. Añade voces en %s o voice_model en config.", self.voices_path)
@@ -180,7 +191,7 @@ class PiperTTS:
         except Exception as e:
             logger.error(f"Error al reproducir voz: {e}")
 
-    def synthesize_to_bytes(self, text: str) -> Optional[bytes]:
+    def synthesize_to_bytes(self, text: str, tts_overrides: dict | None = None) -> Optional[bytes]:
         """Genera audio WAV y lo devuelve como bytes (para API/web). No reproduce."""
         try:
             if not text.strip():
@@ -194,16 +205,24 @@ class PiperTTS:
                 temp_text_path = f.name
             with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as f:
                 temp_audio_path = f.name
-            cmd = [str(self.piper_path), '--model', str(self._voice_path), '--output_file', temp_audio_path]
+            cmd = [
+                str(self.piper_path),
+                '--model', str(self._voice_path),
+                '--output_file', temp_audio_path,
+                *self._piper_inference_args(tts_overrides),
+            ]
             env = os.environ.copy()
             env['LD_LIBRARY_PATH'] = self.piper_dir + ((':' + env.get('LD_LIBRARY_PATH', '')) if env.get('LD_LIBRARY_PATH') else '')
             with open(temp_text_path, 'r', encoding='utf-8') as input_file:
                 p = subprocess.Popen(cmd, stdin=input_file, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
-                p.communicate()
+                _stdout, stderr = p.communicate()
             try:
                 os.unlink(temp_text_path)
             except Exception:
                 pass
+            if p.returncode != 0:
+                logger.error("synthesize_to_bytes piper: %s", stderr)
+                return None
             if not os.path.exists(temp_audio_path):
                 return None
             with open(temp_audio_path, 'rb') as f:

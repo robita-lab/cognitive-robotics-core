@@ -23,7 +23,7 @@ from load_responses import message  # noqa: E402
 from robot_common import (
     SERVICES,
     audio_has_speech,
-    calibrate_noise_floor,
+    calibrate_ambient,
     load_detection_cfg,
     play_wav_bytes,
     progress,
@@ -54,7 +54,9 @@ class UditoPhysical:
         self.tts = PiperTTS(config_path=str(SERVICES / "tts-engine" / "config" / "tts_config.json"))
         self.server = SERVER_URL
         self._check_server()
-        self.noise_floor = calibrate_noise_floor(SAMPLE_RATE, float(self.cfg["calibrate_secs"]))
+        self.noise_floor, self.ww_baseline = calibrate_ambient(
+            ww, SAMPLE_RATE, float(self.cfg["calibrate_secs"]), self.cfg,
+        )
         log.info("UDITO físico → cerebro %s", self.server)
 
     def _check_server(self) -> None:
@@ -99,10 +101,11 @@ class UditoPhysical:
             progress(f"[{lbl}] {r.headers['X-Answer']}")
         return r.content
 
-    def _on_session(self, audio_q: queue.Queue) -> None:
+    def _on_session(self, audio_q: queue.Queue, speaker_lock=None, pre_roll=None) -> None:
         audio = record_question_vad(
             audio_q, self.noise_floor, self.cfg,
             SAMPLE_RATE, CHUNK_SAMPLES, ww.THRESHOLD_VOICE,
+            pre_roll=pre_roll,
         )
         if not audio_has_speech(
             audio, self.noise_floor, self.cfg["speech_margin"],
@@ -131,6 +134,7 @@ class UditoPhysical:
             ww, self.cfg, self.noise_floor, SAMPLE_RATE, CHUNK_SAMPLES,
             on_session=self._on_session,
             greet=lambda: self._speak("greeting", "saludo"),
+            ww_baseline=self.ww_baseline,
         )
 
 

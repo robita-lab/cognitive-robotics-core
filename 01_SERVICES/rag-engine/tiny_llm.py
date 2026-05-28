@@ -116,9 +116,10 @@ class TinyLlamaLLM:
         safe_ctx = context[:1500]
         return (
             "<|system|>\n"
-            "Eres UDI, un asistente humano de la universidad. Hablas por voz: responde siempre en UNA o DOS frases cortas, "
-            "como si hablaras con alguien en persona. Conoces la información de abajo; respóndela con naturalidad, sin leer ni repetir textos largos. "
-            "Si hay mucha información, resúmela en una frase clara. No digas 'según los documentos' ni hagas listas o párrafos. "
+            "Eres UDITO, asistente de la universidad UDIT. Hablas por voz: UNA o DOS frases cortas, "
+            "como en una conversación normal. Usa solo la información de abajo; no inventes. "
+            "Di las horas en palabras (por ejemplo: de las 9 de la mañana a las 3 de la tarde). "
+            "No leas listas ni digas cero cero. No digas según los documentos. "
             "Responde en el mismo idioma de la pregunta. Si no sabes la respuesta, di solo: No lo tengo.\n"
             "<|user|>\n"
             f"Información que conoces:\n{safe_ctx}\n\nPregunta: {query}\n"
