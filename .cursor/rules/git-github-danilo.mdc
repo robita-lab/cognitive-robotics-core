@@ -1,0 +1,18 @@
+---
+description: Git robita-lab — privacidad en commits
+alwaysApply: true
+---
+
+# Git (robita-lab)
+
+- Autor: Danilo Guevara, danilo.guevara@udit.es (`.git/config` local).
+- Token: `/home/udito/.config/robita-lab/github_token` (nunca en el repo).
+- Rama Jetson: `jetson-udito-offline`.
+
+## Repositorio = solo proyecto
+
+Nunca commitear: `.cursor/`, `.env`, tokens, hooks con contexto del chat, instrucciones privadas, menciones a herramientas de IA, rutas de credenciales.
+
+Mensajes de commit: solo cambios técnicos del proyecto, como los escribiría el usuario.
+
+Hooks locales en `.git/hooks/` (no versionados). Sin comentarios que referencien conversaciones ni herramientas.
