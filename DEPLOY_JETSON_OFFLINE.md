@@ -80,6 +80,8 @@ Esto:
 - Sustituye el binario **Piper x86_64** por **piper_linux_aarch64** si hace falta
 - Copia `.env.example` → `.env` con `ROBITA_RAG_CONFIG` para Jetson
 
+Los binarios y voces en `01_SERVICES/tts-engine/piper/` del repo son **para Jetson (aarch64)**. Ver [piper/README.md](01_SERVICES/tts-engine/piper/README.md).
+
 ### 4. Modelos de IA (primera vez con internet)
 
 ```bash

@@ -61,6 +61,8 @@ cp .env.example .env          # editar audio (respeaker, pulse, etc.)
 
 **Audio:** `./scripts/find-speaker.sh` — menú para micrófono y altavoz.
 
+**Piper TTS:** los binarios en `01_SERVICES/tts-engine/piper/` son para **Jetson (aarch64)** — [piper/README.md](01_SERVICES/tts-engine/piper/README.md).
+
 ---
 
 ## Inicio rápido (servidor con Docker)
