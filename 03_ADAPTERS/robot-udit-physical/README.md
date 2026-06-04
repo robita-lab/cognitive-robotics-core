@@ -6,7 +6,7 @@
 cd /opt/robita-lab
 ./scripts/setup-jetson-offline.sh
 ./scripts/download-offline-models.sh
-./scripts/udito_standalone.sh
+./scripts/Principal-UDITO.sh    # o: ./UDITO
 ```
 
 ---
@@ -60,12 +60,17 @@ Guía completa: [`DEPLOY_UDITO.md`](../../DEPLOY_UDITO.md)
 
 ## Scripts (raíz del repo)
 
-| Script | Equivalente anterior | Uso |
-|--------|----------------------|-----|
-| `./scripts/udito.sh` | etapa2-edge | Robot físico + cerebro remoto |
-| `./scripts/udito_standalone.sh` | etapa1-local | Un solo PC, sin Docker cerebro |
-| `./scripts/udito_virtual.sh` | etapa2-servidor | Cerebro con Docker Compose |
-| `./scripts/launch.sh` | — | Cerebro sin Docker (venv + uvicorn) |
+| Script | Uso |
+|--------|-----|
+| **`./scripts/Principal-UDITO.sh`** o **`./UDITO`** | **Principal** — offline en Jetson (log + preparación RAM) |
+| `./scripts/Menu_Udito.sh` | Menú pruebas; opción 1 = Principal-UDITO |
+| `./scripts/udito_standalone.sh` | Motor offline (lo llama Principal-UDITO; uso manual avanzado) |
+| `./scripts/start-udito-visible.sh` | Alias → Principal-UDITO |
+| `./scripts/udito-face-sim.sh` | Simulación pantalla ojos — [FACE_DISPLAY.md](FACE_DISPLAY.md) |
+| `./scripts/udito.sh` | Robot + cerebro remoto (requiere servidor) |
+| `./scripts/udito_virtual.sh` | Cerebro Docker Compose |
+| `./scripts/launch.sh` | Cerebro sin Docker (venv + uvicorn) |
+| `./scripts/udito-run.sh` | Elige online/offline (avanzado) |
 
 ---
 
@@ -116,13 +121,15 @@ export ROBITA_SERVER_URL=http://IP_SERVIDOR:8000
 ./scripts/udito.sh
 ```
 
-**Todo en un PC:**
+**Todo en un PC / Jetson offline:**
 
 ```bash
-./scripts/udito_standalone.sh
+./scripts/Principal-UDITO.sh
 ```
 
-El modo standalone permite **una segunda pregunta** tras la primera sin repetir el wakeword.
+El pipeline offline permite **una segunda pregunta** tras la primera sin repetir el wakeword.
+
+Documentación voz/ROS2: [SPEECH_ROS2.md](SPEECH_ROS2.md)
 
 ---
 

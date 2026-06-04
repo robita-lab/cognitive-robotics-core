@@ -10,30 +10,24 @@ Plataforma del laboratorio **Robita-Lab** (UDIT) para agentes cognitivos en rob�
 
 ## Ramas del repositorio
 
-En GitHub hay dos ramas con propósitos distintos. **No uses `main` por defecto** si vas a desplegar UDITO en un robot físico.
+| Rama | Para qué sirve |
+|------|----------------|
+| **`develop`** | **Rama de trabajo** — UDITO offline en Jetson, `Principal-UDITO.sh`, ROS2, pantalla sim, conocimiento en `knowledge-text/`. |
+| **`main`** | Releases / servidor histórico (Docker, cerebro remoto). |
 
-| Rama | Estado | Para qué sirve |
-|------|--------|----------------|
-| **`jetson-udito-offline`** | **Más actualizada** — recomendada | Robot social físico **UDITO** en Jetson Orin: wakeword, STT, RAG y TTS **todo local**, sin cerebro remoto. Incluye `start-udito-visible.sh`, `find-speaker.sh`, conocimiento estructurado (`knowledge-text/`), consola limpia y guía [DEPLOY_JETSON_OFFLINE.md](DEPLOY_JETSON_OFFLINE.md). |
-| **`main`** | Histórico / instalación antigua | Scripts Docker y `install_in_jetson.sh` de versiones anteriores. **No** incluye el pipeline offline actual ni los scripts de arranque visibles de UDITO. |
-
-**Clonar la rama correcta (Jetson / UDITO físico):**
+**Clonar para Jetson / UDITO físico:**
 
 ```bash
-git clone -b jetson-udito-offline https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
+git clone -b develop https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
 cd /opt/robita-lab
 ```
-
-Si ya tienes el repo y estabas en `main`:
 
 ```bash
 cd /opt/robita-lab
 git fetch origin
-git checkout jetson-udito-offline
-git pull origin jetson-udito-offline
+git checkout develop
+git pull origin develop
 ```
-
-Cuando el equipo valide en hardware, se puede fusionar `jetson-udito-offline` → `main` con un pull request en GitHub.
 
 ---
 
@@ -41,25 +35,26 @@ Cuando el equipo valide en hardware, se puede fusionar `jetson-udito-offline` �
 
 Asistente por voz tipo Alexa/Siri para el autómata **UDITO**: «udito» → «¿Dime?» → pregunta → respuesta hablada.
 
-| Modo | Script | Descripción |
-|------|--------|-------------|
-| **Jetson offline** | `./scripts/start-udito-visible.sh` o `./scripts/udito-run.sh` | Todo local en Orin (~8 GB). Ver [DEPLOY_JETSON_OFFLINE.md](DEPLOY_JETSON_OFFLINE.md) |
-| Cerebro virtual | `./scripts/launch.sh` | STT + TTS + RAG + orquestador (`:8000–8004`) |
-| Robot físico + cerebro | `./scripts/udito.sh` | Mic en el robot; IA por `ROBITA_SERVER_URL` |
-| Un solo PC | `./scripts/udito_standalone.sh` | Wakeword + STT + RAG + TTS sin Docker |
+| Uso | Comando |
+|-----|---------|
+| **Arrancar UDITO (Jetson)** | `./UDITO` o `./scripts/Principal-UDITO.sh` |
+| Pantalla ojos (opcional) | `./scripts/udito-face-sim.sh` |
+| Configurar mic/altavoz | `./scripts/find-speaker.sh` |
 
-Guía de despliegue en robot físico (rama `jetson-udito-offline`): [DEPLOY_JETSON_OFFLINE.md](DEPLOY_JETSON_OFFLINE.md)
+Menú de pruebas, modo online, servidor Docker: ver tabla en [PROJECT_LAYOUT.md](PROJECT_LAYOUT.md). No hace falta invocar `udito_standalone.sh` ni otros `.sh` sueltos.
+
+Guía Jetson offline: [DEPLOY_JETSON_OFFLINE.md](DEPLOY_JETSON_OFFLINE.md) · ROS2: [05_ROS2/README.md](05_ROS2/README.md)
 
 ---
 
-## Inicio rápido (Jetson — rama `jetson-udito-offline`)
+## Inicio rápido (Jetson — rama `develop`)
 
 ```bash
-cd /opt/robita-lab   # debe estar en la rama jetson-udito-offline (ver arriba)
+cd /opt/robita-lab
 cp .env.example .env          # editar audio (respeaker, pulse, etc.)
 ./scripts/setup-jetson-offline.sh
 ./scripts/download-offline-models.sh   # primera vez con internet (~2.7 GB en data/huggingface)
-./scripts/start-udito-visible.sh       # consola limpia; di «udito»
+./scripts/Principal-UDITO.sh         # o: ./UDITO — di «udito»
 ```
 
 **Consola:** `ROBITA_VERBOSE=0` (limpio) o `1` (log Hugging Face, RAG, etc.) en `.env`.
@@ -110,13 +105,15 @@ Copiar `.env.example` → `.env`. Las más usadas en Jetson:
 
 ## Subir cambios a GitHub
 
-Los cambios de UDITO offline se suben a la rama **`jetson-udito-offline`** (no a `main` hasta fusionar por PR).
+Rama de trabajo: **`develop`**.
 
 ```bash
 cd /opt/robita-lab
-git checkout jetson-udito-offline
+git checkout develop
 GITHUB_TOKEN=ghp_xxx ./scripts/push-github.sh "feat: descripción del cambio"
 ```
+
+(`push-github.sh` sube a `develop` por defecto; override: `ROBITA_GIT_BRANCH=otra`.)
 
 El commit debe figurar con tu usuario Git (`git config user.name` / `user.email` en este repo).
 
@@ -126,7 +123,7 @@ No commitear: `.env`, `.venv/`, `data/huggingface/`, cachés RAG.
 
 ## Filosofía
 
-1. Trabajar en rama **`jetson-udito-offline`** (o `feature/…` derivada de ella) para el robot físico UDITO.
-2. Validar en hardware real (ReSpeaker + Jetson Orin).
-3. Push a [cognitive-robotics-core](https://github.com/robita-lab/cognitive-robotics-core) en esa rama.
-4. Otros equipos en Jetson: `git pull origin jetson-udito-offline` + `./scripts/setup-jetson-offline.sh` si hace falta.
+1. Trabajar en rama **`develop`** (o `feature/…` derivada) para el robot físico UDITO.
+2. Validar en hardware real (ReSpeaker + Jetson Orin) con **`./scripts/Principal-UDITO.sh`**.
+3. Push a [cognitive-robotics-core](https://github.com/robita-lab/cognitive-robotics-core) en `develop`.
+4. Otras Jetsons: `git pull origin develop` + `./scripts/setup-jetson-offline.sh` si hace falta.

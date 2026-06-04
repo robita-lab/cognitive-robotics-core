@@ -36,4 +36,4 @@ rsync -avz --progress "${REMOTE}/01_SERVICES/wakeword-engine/models/" \
 
 echo ""
 echo "Listo. Comprueba .env (HF_HOME=$ROOT/data/huggingface) y ejecuta:"
-echo "  ./scripts/udito_standalone.sh"
+echo "  ./scripts/Principal-UDITO.sh"

@@ -14,8 +14,11 @@ _mv() {
   if [[ "$DRY" == "1" ]]; then
     echo "  [dry-run] mv $src -> $dest"
   else
-    mv -f "$src" "$dest"
-    echo "  movido: $(basename "$src")"
+    if mv -f "$src" "$dest" 2>/dev/null; then
+      echo "  movido: $(basename "$src")"
+    else
+      echo "  omitido (ya archivado o en uso): $(basename "$src")"
+    fi
   fi
 }
 

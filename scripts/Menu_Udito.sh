@@ -43,7 +43,7 @@ _list_mics() {
 
 _run_pipeline() {
   _bold "=== Pipeline completo (wakeword → STT → RAG → TTS) ==="
-  exec "$ROOT/scripts/udito-run.sh"
+  exec "$ROOT/scripts/Principal-UDITO.sh"
 }
 
 _run_wakeword() {
@@ -242,8 +242,15 @@ _show_menu() {
   echo "  3) Probar TTS"
   echo "  4) Probar STT + RAG"
   echo "  5) Probar RAG"
-  echo "  6) Salir"
+  echo "  6) Simular pantalla (ojos)"
+  echo "  7) Salir"
   echo ""
+}
+
+_run_face_sim() {
+  _bold "=== Simulación pantalla UDITO (ojos) ==="
+  echo "Abre ventana. En otra terminal: opción 1 (Principal UDITO)."
+  exec "$ROOT/scripts/udito-face-sim.sh"
 }
 
 main() {
@@ -262,7 +269,8 @@ main() {
       3) _run_tts; _pause ;;
       4) _run_stt_rag; _pause ;;
       5) _run_rag; _pause ;;
-      6|0|q|Q) echo "Hasta luego."; exit 0 ;;
+      6) _run_face_sim ;;
+      7|0|q|Q) echo "Hasta luego."; exit 0 ;;
       *) echo "Opción no válida."; _pause ;;
     esac
   done

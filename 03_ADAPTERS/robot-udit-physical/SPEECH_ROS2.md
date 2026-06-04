@@ -42,6 +42,8 @@ Cada frase hablada escribe `/tmp/udito_speech_out.json` y, si `rclpy` está inst
 
 Variables: `ROBITA_SPEECH_EVENT_FILE`, `ROBITA_ROS2_SPEECH`, `ROBITA_RAG_MIN_SIMILARITY` (default `0.38`).
 
+Arranque pipeline offline: `./scripts/Principal-UDITO.sh` (o `./UDITO`). Pantalla ojos: [FACE_DISPLAY.md](FACE_DISPLAY.md).
+
 ## Frases de espera (pre-RAG)
 
 Antes de `process_query`, si la pregunta no es saludo ni chiste/dato curioso, UDITO dice una frase aleatoria de `responses/pre_search_phrases.json` (13 variantes, emoción `thinking`).

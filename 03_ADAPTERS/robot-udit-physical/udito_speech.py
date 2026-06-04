@@ -327,6 +327,32 @@ _ROS_NODE = None
 _ROS_PUB = None
 
 
+def show_face_expression(
+    expression: str,
+    reply: str = "",
+    *,
+    tts=None,
+    play_fn: Callable[[bytes], None] | None = None,
+    progress_fn: Callable[[str], None] | None = None,
+    speak_reply: bool = True,
+) -> None:
+    """Actualiza pantalla/ROS2 al instante; opcionalmente dice una frase corta."""
+    event = SpeechEvent(
+        text=reply,
+        emotion=expression,
+        source="face_command",
+        label="cara",
+    )
+    publish_speech_event(event)
+    if not speak_reply or not (reply or "").strip() or tts is None or play_fn is None:
+        return
+    if progress_fn:
+        progress_fn(f"[cara] ({expression}) {reply[:60]}")
+    wav, _ = synthesize_with_pauses(tts, reply, expression)
+    if wav:
+        play_fn(wav)
+
+
 def speak(
     tts,
     text: str,

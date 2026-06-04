@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Arranque del pipeline UDITO con elección online / offline.
+# Arranque con elección online / offline (avanzado).
+# En Jetson sin servidor usa el comando principal: ./scripts/Principal-UDITO.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -18,7 +19,7 @@ _run_offline() {
   echo "▶ Modo OFFLINE — pipeline completo en esta Jetson"
   echo "  Di «udito» para activar. Ctrl+C para salir."
   echo ""
-  exec "$ROOT/scripts/udito_standalone.sh"
+  exec "$ROOT/scripts/Principal-UDITO.sh"
 }
 
 _run_online() {

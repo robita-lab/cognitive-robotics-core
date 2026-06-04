@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Prueba cada salida de audio UNA a UNA; anota cuáles oyes.
+# Alternativa guiada (prueba salidas una a una). Para fijar mic/altavoz en .env: ./scripts/find-speaker.sh
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"

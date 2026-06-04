@@ -87,7 +87,7 @@ Para portar un modelo OWW de Linux a Windows, re-exportar a `.tflite` y usar el 
 ## Resumen
 
 ```
-Jetson  → openWakeWord + udito.onnx   (DEFAULT en main / udito-run / standalone)
+Jetson  → openWakeWord + udito.onnx   (DEFAULT en Principal-UDITO / udito_standalone)
 Windows → TFLite + micro_model.tflite (legado; no mezclar con oww_detector.py)
 ```
 

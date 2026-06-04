@@ -62,4 +62,4 @@ print("RAG index OK")
 PY
 
 echo ""
-echo "Modelos listos. Arranca: ./scripts/udito_standalone.sh"
+echo "Modelos listos. Arranca: ./scripts/Principal-UDITO.sh  (o ./UDITO)"

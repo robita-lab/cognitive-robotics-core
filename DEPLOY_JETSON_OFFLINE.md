@@ -8,10 +8,10 @@ Repositorio: [cognitive-robotics-core](https://github.com/robita-lab/cognitive-r
 
 Ruta estándar: `/opt/robita-lab`
 
-**Rama Git:** usa **`jetson-udito-offline`** (no `main`). Es la rama más actualizada para UDITO en robot físico. Ver tabla en [README.md](README.md#ramas-del-repositorio).
+**Rama Git:** **`develop`** (UDITO offline en Jetson). Ver [README.md](README.md#ramas-del-repositorio).
 
 ```bash
-git clone -b jetson-udito-offline https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
+git clone -b develop https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
 ```
 
 ---
@@ -20,7 +20,7 @@ git clone -b jetson-udito-offline https://github.com/robita-lab/cognitive-roboti
 
 | Escenario | Script |
 |-----------|--------|
-| **Jetson offline (este documento)** | `./scripts/setup-jetson-offline.sh` luego `./scripts/udito_standalone.sh` |
+| **Jetson offline (este documento)** | `./scripts/setup-jetson-offline.sh` luego **`./scripts/Principal-UDITO.sh`** o **`./UDITO`** |
 | Jetson + cerebro en servidor LAN | `./scripts/udito.sh` con `ROBITA_SERVER_URL` |
 | Servidor (cerebro Docker/venv) | `./scripts/launch.sh` |
 
@@ -141,25 +141,24 @@ Prueba TTS sin wakeword:
 
 ### 8. Arrancar UDITO offline
 
-**Arranque del pipeline (pregunta online / offline):**
+**Comando principal (recomendado en Jetson):**
 
 ```bash
 cd /opt/robita-lab
-./scripts/udito-run.sh
+./scripts/Principal-UDITO.sh
+# atajo en la raíz del repo:
+./UDITO
 ```
 
-Antes de arrancar, `prepare-pipeline.sh` (automático) detiene Docker/contenedores, puertos 8000–8004, ollama si estaba activo, y mueve basura a `_archive/historial/`.
+Internamente ejecuta `udito_standalone.py` vía `udito_standalone.sh` (no hace falta invocarlo directamente).
 
-Desactivar preparación: `ROBITA_SKIP_PREPARE=1 ./scripts/udito-run.sh`
+Antes de arrancar, `prepare-pipeline.sh` (automático) detiene Docker/contenedores, puertos 8000–8004, ollama si estaba activo, y libera RAM.
 
-- **1) Offline** — todo en la Jetson (modo actual recomendado; Enter = offline).
-- **2) Online** — wakeword aquí, cerebro en `ROBITA_SERVER_URL` (solo si el servidor está encendido).
+Desactivar preparación: `ROBITA_SKIP_PREPARE=1 ./scripts/Principal-UDITO.sh`
 
-Sin preguntas (forzar offline):
+`start-udito-visible.sh` redirige al mismo script (compatibilidad).
 
-```bash
-UDITO_MODE=offline ./scripts/udito-run.sh
-```
+**Solo si necesitas cerebro remoto** (servidor encendido): `./scripts/udito-run.sh` → modo online.
 
 **Menú de pruebas por componente:**
 
@@ -167,7 +166,7 @@ UDITO_MODE=offline ./scripts/udito-run.sh
 ./scripts/Menu_Udito.sh
 ```
 
-Opción 1 = mismo `udito-run.sh` (elige modo). Opciones 2–5 = pruebas parciales.
+Opción 1 = `Principal-UDITO.sh`. Opciones 2–6 = pruebas parciales.
 
 Flujo: di **«udito»** → saludo → pregunta → respuesta hablada.
 
@@ -225,9 +224,9 @@ y reinicia standalone (reindexará RAG).
 
 Variables en `.env`: `ROBITA_LOW_MEMORY=1`, `ROBITA_RELEASE_MODELS=1`.
 
-**No ejecutes** en la Jetson a la vez: `download-offline-models.sh` (descarga TinyLlama) + pipeline + Docker. Usa el **menú** o `udito_standalone.sh` con la config Jetson.
+**No ejecutes** en la Jetson a la vez: `download-offline-models.sh` (descarga TinyLlama) + pipeline + Docker. Arranca con **`Principal-UDITO.sh`** o **`Menu_Udito.sh` → opción 1**.
 
-**No uses** `udito.sh` ni `ROBITA_SERVER_URL` si el servidor no está disponible. El modo correcto es siempre **`udito_standalone.sh`** o **`Menu_Udito.sh` → opción 1** en esta Jetson.
+**No uses** `udito.sh` ni `ROBITA_SERVER_URL` si el servidor no está disponible. El modo correcto en esta Jetson es siempre **offline** → **`Principal-UDITO.sh`** (o `./UDITO`).
 
 | Síntoma | Acción |
 |---------|--------|

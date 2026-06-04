@@ -18,4 +18,4 @@ p = ensure_model()
 print('OK:', p)
 "
 echo ""
-echo "Listo. Arranca UDITO con: ROBITA_WAKEWORD_BACKEND=udito_mfcc ./scripts/start-udito-visible.sh"
+echo "Listo. Arranca UDITO con: ROBITA_WAKEWORD_BACKEND=udito_mfcc ./scripts/Principal-UDITO.sh"

@@ -24,7 +24,7 @@ fi
 MSG="${1:-feat(jetson): UDITO offline Jetson — voz, RAG y conocimiento}"
 git commit -m "$MSG"
 
-BRANCH="${ROBITA_GIT_BRANCH:-jetson-udito-offline}"
+BRANCH="${ROBITA_GIT_BRANCH:-develop}"
 
 if [[ -n "${GITHUB_TOKEN:-}" ]]; then
   git fetch origin "$BRANCH" 2>/dev/null || true

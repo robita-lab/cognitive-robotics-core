@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Preparación antes de lanzar UDITO: libera RAM y deja el proyecto limpio.
-# Llamado automáticamente desde udito-run.sh (desactivar: ROBITA_SKIP_PREPARE=1)
+# Llamado desde Principal-UDITO.sh / udito-run.sh (desactivar: ROBITA_SKIP_PREPARE=1)
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
