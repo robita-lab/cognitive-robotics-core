@@ -34,12 +34,25 @@ rsync -avz "${RSYNC_EXCLUDES[@]}" \
   "$ROOT/05_ROS2/" \
   "$SSH:$DEST/05_ROS2/"
 
-rsync -avz \
-  "$ROOT/scripts/udito/" "$SSH:$DEST/scripts/udito/" \
-  "$ROOT/scripts/setup/" "$SSH:$DEST/scripts/setup/" \
-  "$ROOT/scripts/ros2/" "$SSH:$DEST/scripts/ros2/" \
-  "$ROOT/scripts/lib/" "$SSH:$DEST/scripts/lib/" \
-  "$ROOT/scripts/README.md" "$SSH:$DEST/scripts/README.md"
+rsync -avz "${RSYNC_EXCLUDES[@]}" \
+  "$ROOT/scripts/udito/" \
+  "$SSH:$DEST/scripts/udito/"
+
+rsync -avz "${RSYNC_EXCLUDES[@]}" \
+  "$ROOT/scripts/setup/" \
+  "$SSH:$DEST/scripts/setup/"
+
+rsync -avz "${RSYNC_EXCLUDES[@]}" \
+  "$ROOT/scripts/ros2/" \
+  "$SSH:$DEST/scripts/ros2/"
+
+rsync -avz "${RSYNC_EXCLUDES[@]}" \
+  "$ROOT/scripts/lib/" \
+  "$SSH:$DEST/scripts/lib/"
+
+rsync -avz "${RSYNC_EXCLUDES[@]}" \
+  "$ROOT/scripts/README.md" \
+  "$SSH:$DEST/scripts/README.md"
 
 rsync -avz "$ROOT/UDITO" "$SSH:$DEST/UDITO"
 
