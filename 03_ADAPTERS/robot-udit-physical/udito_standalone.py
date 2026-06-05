@@ -151,7 +151,8 @@ class UditoStandalone:
       if hasattr(ww, "load"):
         ww.load()
       self._stt_engine()._ensure_model()
-      status_line("UDITO · listo — di «udito» para activar          ")
+      from robot_common import wake_phrase
+      status_line(f"UDITO · listo — di «{wake_phrase(self.cfg)}» para activar          ")
 
   def _speak_key(self, key: str, label: str, emotion: str = "neutral") -> None:
     text = message(key)

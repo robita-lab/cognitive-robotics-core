@@ -6,12 +6,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 mkdir -p logs
-LOG="$ROOT/logs/udito-standalone.log"
-# Si un arranque previo como root dejó el log sin permiso de escritura, recrearlo
-if [[ -e "$LOG" ]] && [[ ! -w "$LOG" ]]; then
-  rm -f "$LOG" 2>/dev/null || true
-fi
-touch "$LOG" 2>/dev/null || true
+chmod u+rwx logs 2>/dev/null || true
 
 export UDITO_MODE=offline
 export ROBITA_VERBOSE="${ROBITA_VERBOSE:-0}"
@@ -26,19 +21,30 @@ if [[ -f "$ROOT/.env" ]]; then set -a; source "$ROOT/.env"; set +a; fi
 [[ -n "$_CLI_SKIP_PREPARE" ]] && export ROBITA_SKIP_PREPARE="$_CLI_SKIP_PREPARE"
 [[ -n "$_CLI_CLEANUP" ]] && export ROBITA_CLEANUP_PROJECT="$_CLI_CLEANUP"
 
-if [[ -n "${ROBITA_AUDIO_OUTPUT:-}" ]] && command -v pactl >/dev/null; then
-    case "${ROBITA_AUDIO_OUTPUT,,}" in
-      hdmi) SINK="alsa_output.platform-3510000.hda.hdmi-stereo" ;;
-      respeaker) SINK="alsa_output.usb-SEEED_ReSpeaker_4_Mic_Array__UAC1.0_-00.analog-stereo" ;;
-      platform|placa) SINK="alsa_output.platform-sound.analog-stereo" ;;
-      *) SINK="${ROBITA_PULSE_SINK:-}" ;;
-    esac
-    if [[ -n "$SINK" ]]; then
-      pactl suspend-sink "$SINK" 0 2>/dev/null || true
-      pactl set-sink-volume "$SINK" 100% 2>/dev/null || true
-      pactl set-default-sink "$SINK" 2>/dev/null || true
-      echo "Audio: sink PulseAudio → $SINK"
-    fi
+if command -v pactl >/dev/null; then
+  _RS_SRC="${ROBITA_PULSE_SOURCE:-alsa_input.usb-SEEED_ReSpeaker_4_Mic_Array__UAC1.0_-00.multichannel-input}"
+  _RS_SNK="${ROBITA_PULSE_SINK:-alsa_output.usb-SEEED_ReSpeaker_4_Mic_Array__UAC1.0_-00.analog-stereo}"
+  _IN="${ROBITA_AUDIO_INPUT:-}"
+  _OUT="${ROBITA_AUDIO_OUTPUT:-}"
+  if [[ "${_IN,,}" == "respeaker" ]] || [[ "${_IN,,}" == "pulse" && "${_OUT,,}" == "respeaker" ]]; then
+    pactl suspend-source "$_RS_SRC" 0 2>/dev/null || true
+    pactl set-source-volume "$_RS_SRC" 100% 2>/dev/null || true
+    pactl set-default-source "$_RS_SRC" 2>/dev/null || true
+    echo "Audio: micrófono Pulse → $_RS_SRC"
+  fi
+  case "${_OUT,,}" in
+    hdmi) SINK="alsa_output.platform-3510000.hda.hdmi-stereo" ;;
+    respeaker) SINK="$_RS_SNK" ;;
+    platform|placa) SINK="alsa_output.platform-sound.analog-stereo" ;;
+    pulse) SINK="" ;;
+    *) SINK="${ROBITA_PULSE_SINK:-}" ;;
+  esac
+  if [[ -n "$SINK" ]]; then
+    pactl suspend-sink "$SINK" 0 2>/dev/null || true
+    pactl set-sink-volume "$SINK" 100% 2>/dev/null || true
+    pactl set-default-sink "$SINK" 2>/dev/null || true
+    echo "Audio: altavoz Pulse → $SINK"
+  fi
 fi
 
 [[ -x "$ROOT/.venv/bin/python" ]] || "$ROOT/scripts/setup/jetson.sh"
@@ -48,10 +54,19 @@ if [[ "${ROBITA_SKIP_PREPARE:-0}" != "1" ]]; then
   bash "$ROOT/scripts/lib/prepare-pipeline.sh"
 fi
 
+LOG="$ROOT/logs/udito-standalone.log"
+if [[ -e "$LOG" ]] && [[ ! -w "$LOG" ]]; then
+  rm -f "$LOG" 2>/dev/null || true
+fi
+if ! touch "$LOG" 2>/dev/null || [[ ! -w "$LOG" ]]; then
+  LOG="/tmp/udito-standalone.log"
+  touch "$LOG" 2>/dev/null || true
+fi
+
 echo ""
 echo "══════════════════════════════════════════════════════"
 echo "  Principal UDITO — modo OFFLINE (todo en esta Jetson)"
-echo "  Di «udito» para activar. Mensajes en esta terminal."
+echo "  Di «${ROBITA_WAKEWORD:-udito}» para activar. Mensajes en esta terminal."
 echo "  Log: $LOG"
 echo "  Ctrl+C para parar"
 echo "══════════════════════════════════════════════════════"

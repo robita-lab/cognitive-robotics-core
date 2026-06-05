@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,7 @@ _CONFIG_PATH = _ENGINE_DIR / "config" / "wakeword.json"
 
 _config: dict[str, Any] | None = None
 _engine: "WakeWordEngine | None" = None
+_model_verified = False
 
 
 def load_config(config_path: Path | None = None) -> dict[str, Any]:
@@ -67,14 +70,34 @@ class WakeWordEngine:
         self._model_key = str(self._cfg.get("wake_word", "udito"))
 
     def _model_path(self) -> Path:
-        rel = self._cfg["model"]["path"]
-        p = _resolve(rel)
+        env = os.getenv("ROBITA_WAKEWORD_MODEL", "").strip()
+        if env:
+            p = Path(env) if Path(env).is_absolute() else _resolve(env)
+        else:
+            p = _resolve(self._cfg["model"]["path"])
+        if not p.is_file():
+            p = self._download_if_pretrained(p)
         if not p.is_file():
             raise FileNotFoundError(
                 f"No existe el modelo wakeword: {p}\n"
-                "Copia udito.onnx a 01_SERVICES/wakeword-engine/models/udito.onnx"
+                "Copia udito.onnx o usa ROBITA_WAKEWORD_MODEL=.../hey_jarvis_v0.1.onnx"
             )
         return p
+
+    def _download_if_pretrained(self, path: Path) -> Path:
+        """Descarga modelos OWW preentrenados (hey_jarvis, alexa, …) si faltan."""
+        stem = path.stem
+        if "_v0.1" not in stem:
+            return path
+        name = stem.replace("_v0.1", "")
+        try:
+            from openwakeword.utils import download_models
+
+            logger.info("Descargando modelo preentrenado «%s»…", name)
+            download_models(model_names=[name], target_directory=str(path.parent))
+        except Exception as exc:
+            logger.warning("No se pudo descargar %s: %s", name, exc)
+        return path
 
     def _base_models_dir(self) -> Path:
         rel = self._cfg["model"]["base_models_dir"]
@@ -117,7 +140,14 @@ class WakeWordEngine:
         for key in self._model.models:
             self._model_key = key
             break
+        if not self._model.models:
+            self._model_key = model_path.stem
         logger.info("Wakeword listo (clave: %s)", self._model_key)
+        print(
+            f"[wakeword] modelo={model_path}  clave={self._model_key}",
+            flush=True,
+        )
+        _verify_loaded_model(self)
         try:
             from ros2_bridge import log_ros2_status
 
@@ -125,25 +155,57 @@ class WakeWordEngine:
         except Exception:
             pass
 
-    def _score(self, audio: np.ndarray) -> float:
-        self.load()
+    def _peak_on_audio(self, audio: np.ndarray) -> float:
         assert self._model is not None
-        x = np.asarray(audio, dtype=np.float32).reshape(-1)
-        preds = self._model.predict(x)
-        if not isinstance(preds, dict):
+        b = self.CHUNK_SAMPLES
+        flat = np.asarray(audio, dtype=np.float32).reshape(-1)
+        peak = 0.0
+        for i in range(0, max(1, flat.size - b + 1), b):
+            peak = max(peak, self._score(flat[i : i + b]))
+        return peak
+
+    def _pick_score(self, preds: dict[str, float]) -> float:
+        """Elige la puntuación correcta (OWW usa el nombre del .onnx, p. ej. hey_jarvis_v0.1)."""
+        if not preds:
             return 0.0
         if self._model_key in preds:
             return float(preds[self._model_key])
-        wake = str(self._cfg.get("wake_word", "udito"))
-        for name in (wake, wake.upper(), wake.capitalize()):
-            if name in preds:
-                return float(preds[name])
+        stem = self._model_path().stem
+        short = stem.replace("_v0.1", "")
         for key, val in preds.items():
-            if wake.lower() in key.lower():
+            if key == stem or key.startswith(short) or short in key:
+                return float(val)
+        env_phrase = os.getenv("ROBITA_WAKEWORD", "").strip().replace(" ", "_").lower()
+        if env_phrase:
+            for key, val in preds.items():
+                if env_phrase in key.lower().replace(" ", "_"):
+                    return float(val)
+        wake = str(self._cfg.get("wake_word", "udito")).replace(" ", "_").lower()
+        for key, val in preds.items():
+            if wake in key.lower().replace(" ", "_"):
                 return float(val)
         if len(preds) == 1:
             return float(next(iter(preds.values())))
-        return 0.0
+        return float(max(preds.values()))
+
+
+    def _pcm16(self, audio: np.ndarray) -> np.ndarray:
+        x = np.asarray(audio, dtype=np.float32).reshape(-1)
+        if x.dtype == np.int16:
+            return x
+        if np.issubdtype(x.dtype, np.floating):
+            x = np.clip(x, -1.0, 1.0)
+            return (x * 32767.0).astype(np.int16)
+        return x.astype(np.int16)
+
+    def _score(self, audio: np.ndarray) -> float:
+        self.load()
+        assert self._model is not None
+        x = self._pcm16(audio)
+        preds = self._model.predict(x)
+        if not isinstance(preds, dict):
+            return 0.0
+        return self._pick_score(preds)
 
     def run_inference(self, block_audio: np.ndarray) -> float:
         return self._score(block_audio)
@@ -151,6 +213,45 @@ class WakeWordEngine:
     def run_inference_scores(self, block_audio: np.ndarray) -> tuple[float, float]:
         p = self._score(block_audio)
         return p, max(0.0, 1.0 - p)
+
+
+def _verify_loaded_model(eng: WakeWordEngine, min_peak: float = 0.05) -> float:
+    """Comprueba carga del modelo (udito roto ~0.0008; OWW muestra claves de predict)."""
+    global _model_verified
+    if _model_verified:
+        return min_peak
+    _model_verified = True
+    assert eng._model is not None
+    b = eng.CHUNK_SAMPLES
+    rng = np.random.default_rng(0)
+    eng._model.reset()
+    warmup = np.zeros(b, dtype=np.float32)
+    last_preds: dict = {}
+    for _ in range(30):
+        last_preds = eng._model.predict(warmup)
+    print(f"[wakeword] claves OWW: {list(last_preds.keys())}", flush=True)
+    peak = max(
+        eng._peak_on_audio(np.zeros(b * 12, dtype=np.float32)),
+        eng._peak_on_audio(rng.standard_normal(b * 12).astype(np.float32) * 0.2),
+    )
+    print(f"[wakeword] auto-test pico={peak:.5f}", flush=True)
+    model_name = eng._model_path().name
+    if model_name == "udito.onnx" and peak < min_peak:
+        msg = (
+            f"ERROR: models/udito.onnx no funciona (pico={peak:.4f}). "
+            "Entrena uno válido: cd ww2 && python train_udito.py "
+            "→ cp ww2/models/udito.onnx 01_SERVICES/wakeword-engine/models/ "
+            "Mientras tanto: ROBITA_WAKEWORD_MODEL=.../hey_jarvis_v0.1.onnx en .env"
+        )
+        logger.error(msg)
+        print(msg, file=sys.stderr)
+    elif "hey_jarvis" in model_name and peak < 0.001:
+        print(
+            "[wakeword] AVISO: pico muy bajo con hey_jarvis — "
+            "revisa modelos base en models/openwakeword/ (./scripts/setup/wakeword.sh)",
+            flush=True,
+        )
+    return peak
 
 
 def get_engine() -> WakeWordEngine:

@@ -16,6 +16,10 @@ ADAPTER="${ROOT}/03_ADAPTERS/robot-udit-physical"
 
 export DISPLAY="${DISPLAY:-:0}"
 export ROBITA_SPEECH_EVENT_FILE="${ROBITA_SPEECH_EVENT_FILE:-/tmp/udito_speech_out.json}"
+export ROBITA_WAKEWORD_EVENT_FILE="${ROBITA_WAKEWORD_EVENT_FILE:-/tmp/udito_wakeword.json}"
 export ROBITA_FACE_BACKEND="${ROBITA_FACE_BACKEND:-sim}"
 
-exec "$PY" "$ADAPTER/udito_face.py"
+MODE=()
+[[ "${1:-}" == "--wakeword" ]] && MODE=(--wakeword)
+
+exec "$PY" "$ADAPTER/udito_face.py" "${MODE[@]}"

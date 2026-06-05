@@ -1,22 +1,24 @@
 #!/usr/bin/env bash
-# Terminal 1 — ejemplo ROS2: escucha wakeword y estado del pipeline offline.
+# Terminal 1 — ROS2 + simulador de cara (espera wakeword). Terminal 2: ./UDITO
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 if [[ -f /opt/ros/humble/setup.bash ]]; then
+  set +u
   # shellcheck source=/dev/null
   source /opt/ros/humble/setup.bash
+  set -u
 elif [[ -f /opt/ros/jazzy/setup.bash ]]; then
+  set +u
   # shellcheck source=/dev/null
   source /opt/ros/jazzy/setup.bash
+  set -u
 else
-  echo "ROS2 no encontrado (/opt/ros/humble)."
-  exit 1
+  echo "Aviso: ROS2 no encontrado — la cara seguirá leyendo /tmp/udito_wakeword.json"
 fi
 
-echo "UDITO ROS2 wakeword listener — /udito/wakeword, /udito/state"
-echo "Archivo JSON (sin ROS2): /tmp/udito_wakeword.json"
-echo "En otra terminal: ./scripts/udito/start.sh"
-echo ""
+if command -v ros2 >/dev/null 2>&1; then
+  ros2 daemon status 2>/dev/null | grep -q "is running" || ros2 daemon start 2>/dev/null || true
+fi
 
-exec python3 "$ROOT/05_ROS2/udito_wakeword_listener.py"
+exec "$ROOT/scripts/udito/face-sim.sh" --wakeword

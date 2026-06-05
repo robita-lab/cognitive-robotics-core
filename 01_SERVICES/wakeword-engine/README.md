@@ -57,6 +57,17 @@ Descarga modelos base OpenWakeWord (primera vez):
 ./scripts/setup/wakeword.sh
 ```
 
+### Demo mientras entrenas «udito»
+
+En `.env` (modelo preentrenado OWW — di **«hey jarvis»** en inglés):
+
+```bash
+ROBITA_WAKEWORD=hey jarvis
+ROBITA_WAKEWORD_MODEL=/opt/robita-lab/01_SERVICES/wakeword-engine/models/openwakeword/hey_jarvis_v0.1.onnx
+```
+
+Otros: `alexa`, `hey_mycroft`, `hey_rhasspy`, `timer`, `weather` (misma carpeta, sufijo `_v0.1.onnx`).
+
 ## Probar carga
 
 ```bash

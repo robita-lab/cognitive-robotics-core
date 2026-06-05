@@ -34,13 +34,12 @@ En la Jetson con monitor:
 
 ```bash
 cd /opt/robita-lab
-./scripts/udito/face-sim.sh
-```
 
-**Terminal 2** (pipeline):
+# Terminal 1 — cara + wakeword (ROS2)
+./scripts/ros2/listener-wakeword.sh
 
-```bash
-./scripts/udito/start.sh
+# Terminal 2 — pipeline
+./UDITO
 ```
 
 Cuando UDITO hable, la ventana cambia de emoción (`happy`, `thinking`, `sorry`, `laugh`, …).

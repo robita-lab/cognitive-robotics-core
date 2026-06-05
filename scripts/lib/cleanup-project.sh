@@ -33,6 +33,7 @@ _mv "$ROOT/scripts/test-audio.sh" "$ARCH/scripts/test-audio.sh"
 mkdir -p "$ROOT/logs"
 for f in "$ROOT/logs"/*.log; do
   [[ -f "$f" ]] || continue
+  [[ "$(basename "$f")" == "udito-standalone.log" ]] && continue
   _mv "$f" "$ARCH/logs/$(basename "$f")"
 done
 

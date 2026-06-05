@@ -51,6 +51,14 @@ rsync -avz "${RSYNC_EXCLUDES[@]}" \
   "$SSH:$DEST/scripts/lib/"
 
 rsync -avz "${RSYNC_EXCLUDES[@]}" \
+  "$ROOT/scripts/dev/" \
+  "$SSH:$DEST/scripts/dev/"
+
+rsync -avz "${RSYNC_EXCLUDES[@]}" \
+  "$ROOT/example/" \
+  "$SSH:$DEST/example/"
+
+rsync -avz "${RSYNC_EXCLUDES[@]}" \
   "$ROOT/scripts/README.md" \
   "$SSH:$DEST/scripts/README.md"
 

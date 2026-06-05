@@ -8,10 +8,12 @@ from __future__ import annotations
 import json
 import logging
 import os
+import sys
+import threading
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Protocol
+from typing import Any, Callable, Protocol
 
 log = logging.getLogger("udito.face")
 
@@ -438,6 +440,130 @@ def run_face_sim_loop(
     return 0
 
 
+_WAKEWORD_STATE_FACE: dict[str, tuple[str, str]] = {
+    "wakeword_listening": ("idle", "esperando «udito»"),
+    "wakeword_detected": ("listening", "¡udito!"),
+    "session_listening": ("listening", "escuchando…"),
+    "idle": ("idle", ""),
+}
+
+
+def face_from_wakeword_json(data: dict[str, Any]) -> FaceState | None:
+    if data.get("event") == "wakeword_detected":
+        ww = str(data.get("wake_word") or "udito")
+        p = float(data.get("probability") or 0)
+        return FaceState(emotion="listening", label=f"«{ww}» p={p:.2f}", source="wakeword")
+    state = str(data.get("state") or "").strip()
+    if state in _WAKEWORD_STATE_FACE:
+        em, label = _WAKEWORD_STATE_FACE[state]
+        return FaceState(emotion=em, label=label, source="state")
+    return None
+
+
+def _load_json_dict(path: Path) -> dict[str, Any] | None:
+    if not path.is_file():
+        return None
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        log.debug("No se leyó %s: %s", path, exc)
+        return None
+
+
+class _WakewordRosBridge:
+    def __init__(self, on_face: Callable[[FaceState], None]) -> None:
+        import rclpy
+        from rclpy.node import Node
+        from std_msgs.msg import String
+
+        outer = self
+
+        class _Node(Node):
+            def __init__(self) -> None:
+                super().__init__("udito_wakeword_face")
+                self.create_subscription(String, "/udito/wakeword", self._on_ww, 10)
+                self.create_subscription(String, "/udito/state", self._on_st, 10)
+                self.get_logger().info("Cara + ROS2 — /udito/wakeword, /udito/state")
+
+            def _on_ww(self, msg: String) -> None:
+                outer._on_msg(msg.data)
+
+            def _on_st(self, msg: String) -> None:
+                outer._on_msg(msg.data)
+
+        self._rclpy = rclpy
+        self._on_face = on_face
+        if not rclpy.ok():
+            rclpy.init()
+        self._node = _Node()
+        threading.Thread(target=rclpy.spin, args=(self._node,), daemon=True).start()
+
+    def _on_msg(self, raw: str) -> None:
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return
+        st = face_from_wakeword_json(data)
+        if st:
+            self._on_face(st)
+
+    def shutdown(self) -> None:
+        if self._node is not None:
+            self._node.destroy_node()
+        if self._rclpy.ok():
+            self._rclpy.shutdown()
+
+
+def run_wakeword_face_loop(
+    event_file: str | None = None,
+    poll_hz: float = 15.0,
+) -> int:
+    """T1 prueba wakeword: cara + /tmp/udito_wakeword.json (+ ROS2 si hay rclpy)."""
+    path = Path(event_file or os.getenv("ROBITA_WAKEWORD_EVENT_FILE", "/tmp/udito_wakeword.json"))
+    display = PygameFaceSim(title="UDITO — wakeword")
+    display.set_state(FaceState(emotion="idle", label="esperando «udito»", source="init"))
+
+    def apply(st: FaceState) -> None:
+        display.set_state(st)
+
+    ros: _WakewordRosBridge | None = None
+    try:
+        ros = _WakewordRosBridge(apply)
+        print("ROS2: /udito/wakeword, /udito/state")
+    except Exception as exc:
+        print(f"ROS2 no disponible ({exc}) — solo {path}")
+
+    print(f"Cara wakeword: {path} | T2: ./UDITO | Esc: salir")
+
+    last_mtime = 0.0
+    poll_interval = 1.0 / poll_hz
+    last_poll = 0.0
+
+    try:
+        while True:
+            now = time.monotonic()
+            if now - last_poll >= poll_interval:
+                last_poll = now
+                if path.is_file():
+                    mt = path.stat().st_mtime
+                    if mt != last_mtime:
+                        last_mtime = mt
+                        data = _load_json_dict(path)
+                        if data:
+                            st = face_from_wakeword_json(data)
+                            if st:
+                                apply(st)
+            if not display.tick(1.0 / 30.0):
+                break
+    finally:
+        display.close()
+        if ros is not None:
+            ros.shutdown()
+    return 0
+
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
+    if "--wakeword" in sys.argv:
+        raise SystemExit(run_wakeword_face_loop())
     raise SystemExit(run_face_sim_loop())

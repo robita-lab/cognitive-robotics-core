@@ -67,6 +67,25 @@ def resolve_audio_input() -> int | str | None:
     if key in ("pulse", "default"):
         return key
     patterns = _INPUT_NAME_PATTERNS.get(key, (key,))
+    if key == "respeaker":
+        for idx, info in enumerate(sd.query_devices()):
+            if int(info.get("max_input_channels", 0)) <= 0:
+                continue
+            name = str(info.get("name", "")).lower()
+            if any(p in name for p in patterns):
+                in_ch = int(info.get("max_input_channels", 0))
+                if in_ch > 2:
+                    log.info(
+                        "ReSpeaker %sch ALSA → captura vía Pulse (beamforming; start.sh fija la source)",
+                        in_ch,
+                    )
+                    return "pulse"
+                log.info("Micrófono resuelto: %s → [%s] %s", raw, idx, info.get("name"))
+                return idx
+        log.info(
+            "ReSpeaker: captura vía Pulse (multichannel); ALSA sin entrada usable"
+        )
+        return "pulse"
     for idx, info in enumerate(sd.query_devices()):
         if int(info.get("max_input_channels", 0)) <= 0:
             continue
@@ -119,6 +138,22 @@ _PULSE_SINK_ALIASES = {
     "platform": "alsa_output.platform-sound.analog-stereo",
     "placa": "alsa_output.platform-sound.analog-stereo",
 }
+
+_PULSE_SOURCE_ALIASES = {
+    "respeaker": "alsa_input.usb-SEEED_ReSpeaker_4_Mic_Array__UAC1.0_-00.multichannel-input",
+}
+
+
+def resolve_pulse_source(audio_input: str) -> str | None:
+    explicit = os.getenv("ROBITA_PULSE_SOURCE", "").strip()
+    if explicit:
+        return explicit
+    key = audio_input.strip().lower()
+    if key in _PULSE_SOURCE_ALIASES:
+        return _PULSE_SOURCE_ALIASES[key]
+    if key.startswith("alsa_input."):
+        return audio_input.strip()
+    return None
 
 
 def resolve_pulse_sink(output: str) -> str | None:
@@ -210,7 +245,17 @@ def load_detection_cfg() -> dict:
             cfg.update(json.load(f))
     except Exception as exc:
         log.warning("No se pudo leer %s: %s", SESSION_CONFIG, exc)
+    ww_env = os.getenv("ROBITA_WAKEWORD", "").strip()
+    if ww_env:
+        cfg["wake_word"] = ww_env
     return cfg
+
+
+def wake_phrase(cfg: dict | None = None) -> str:
+    if cfg and str(cfg.get("wake_word", "")).strip():
+        return str(cfg["wake_word"]).strip()
+    env = os.getenv("ROBITA_WAKEWORD", "").strip()
+    return env or "udito"
 
 
 def block_rms(block: np.ndarray) -> float:
@@ -218,6 +263,25 @@ def block_rms(block: np.ndarray) -> float:
     if b.size == 0:
         return 0.0
     return float(np.sqrt(np.mean(b * b)))
+
+
+def input_capture_channels(device: int | str | None) -> tuple[int, bool]:
+    """Canales de captura; downmix=True si hay que promediar (ReSpeaker 6ch)."""
+    if device is None or isinstance(device, str):
+        return 1, False
+    try:
+        n = int(sd.query_devices(device).get("max_input_channels", 1))
+    except Exception:
+        return 1, False
+    if n > 1:
+        return n, True
+    return 1, False
+
+
+def mono_from_capture(indata: np.ndarray) -> np.ndarray:
+    if indata.ndim == 1:
+        return indata.copy().astype(np.float32)
+    return indata.mean(axis=1).astype(np.float32)
 
 
 def calibrate_noise_floor(sample_rate: int, seconds: float) -> float:
@@ -232,14 +296,16 @@ def calibrate_ambient(ww, sample_rate: int, seconds: float, cfg: dict) -> tuple[
     else:
         status_line("Calibrando micrófono…", end="\r")
     dev = audio_input_device()
-    kwargs: dict = {"samplerate": sample_rate, "channels": 1, "dtype": "float32"}
+    cap_ch, downmix = input_capture_channels(dev)
+    kwargs: dict = {"samplerate": sample_rate, "channels": cap_ch, "dtype": "float32"}
     if dev is not None:
         kwargs["device"] = dev
         if verbose_progress():
-            print(f"   micrófono: {dev}")
+            print(f"   micrófono: {dev}" + (f" ({cap_ch}ch→mono)" if downmix else ""))
     audio = sd.rec(int(seconds * sample_rate), **kwargs)
     sd.wait()
-    floor = max(block_rms(audio.reshape(-1)), 1e-5)
+    flat = mono_from_capture(audio) if downmix else audio.reshape(-1)
+    floor = max(block_rms(flat), 1e-5)
     if verbose_progress():
         print(f"   nivel ambiente RMS={floor:.5f}")
 
@@ -249,9 +315,9 @@ def calibrate_ambient(ww, sample_rate: int, seconds: float, cfg: dict) -> tuple[
         voice_margin = float(cfg.get("voice_margin", 5.0))
         energy_min = max(float(getattr(ww, "THRESHOLD_VOICE", 1e-4)), floor * voice_margin * 0.35)
         probs: list[float] = []
-        flat = audio.reshape(-1).astype(np.float32)
-        for start in range(0, max(1, flat.size - block_samples + 1), block_samples // 2):
-            block = flat[start : start + block_samples]
+        cal_flat = flat.astype(np.float32)
+        for start in range(0, max(1, cal_flat.size - block_samples + 1), block_samples // 2):
+            block = cal_flat[start : start + block_samples]
             if block.size < block_samples:
                 break
             if block_rms(block) >= energy_min:
@@ -619,6 +685,7 @@ def run_voice_assistant(
     ww_baseline: float = 0.5,
 ) -> None:
     """Micrófono siempre abierto. Solo reacciona al wakeword; luego saludo → sesión → escucha."""
+    ww_label = wake_phrase(cfg)
     hi = float(cfg["wakeword_threshold"])
     lo = max(0.0, hi - 0.10)
     spike_range_min = float(cfg.get("wakeword_spike_range_min", 0.10))
@@ -633,7 +700,11 @@ def run_voice_assistant(
     audio_q: queue.Queue = queue.Queue(maxsize=1200)
     buffer = np.zeros(0, dtype=np.float32)
     block_samples = int(sample_rate * float(getattr(ww, "BLOCK_DURATION", 1.0)))
-    hop_samples = block_samples if getattr(ww, "BACKEND", "") == "openwakeword" else max(1, int(block_samples * 0.5))
+    hop_samples = (
+        max(1, block_samples // 2)
+        if getattr(ww, "BACKEND", "") == "openwakeword"
+        else max(1, int(block_samples * 0.5))
+    )
     consecutive_hits = 0
     last_trigger = 0.0
     session_active = False
@@ -646,22 +717,23 @@ def run_voice_assistant(
     def callback(indata, frames, ctime, status):
         if status:
             log.warning("Audio: %s", status)
-        flat = indata.copy().reshape(-1)
+        flat = mono_from_capture(indata.copy())
         pre_roll.push(flat)
         try:
             audio_q.put_nowait(flat)
         except queue.Full:
             pass
 
+    mic = audio_input_device()
+    cap_ch, _downmix = input_capture_channels(mic)
     stream_kwargs: dict = {
         "samplerate": sample_rate,
-        "channels": 1,
+        "channels": cap_ch,
         "dtype": "float32",
         "blocksize": stream_block,
         "latency": "high",
         "callback": callback,
     }
-    mic = audio_input_device()
     if mic is not None:
         stream_kwargs["device"] = mic
         try:
@@ -672,7 +744,7 @@ def run_voice_assistant(
         except Exception:
             mic_name = str(mic)
         cap_hz = input_device_sample_rate(mic, sample_rate)
-        log.info("Micrófono: %s (stream %s Hz)", mic_name, sample_rate)
+        log.info("Micrófono: %s (stream %s Hz%s)", mic_name, sample_rate, f", {cap_ch}ch→mono" if cap_ch > 1 else "")
         if cap_hz != sample_rate:
             log.warning("Dispositivo nativo %s Hz — verifica ROBITA_AUDIO_INPUT", cap_hz)
 
@@ -687,13 +759,13 @@ def run_voice_assistant(
 
     if verbose_progress():
         progress("=" * 52)
-        progress("  LISTO — di «udito» para activar el asistente")
+        progress(f"  LISTO — di «{ww_label}» para activar el asistente")
         progress("=" * 52)
         progress(f"  Activación: pico ≥{float(cfg.get('wakeword_rel_spike_min', 0.055)):.2f} sobre baseline  ({hits_needed} ventana(s))")
-        progress("  Di «udito» claro, cerca del micrófono")
+        progress(f"  Di «{ww_label}» claro, cerca del micrófono")
         progress("")
     else:
-        status_line("Escuchando «udito»…")
+        status_line(f"Escuchando «{ww_label}»…")
 
     with sd.InputStream(**stream_kwargs):
         while True:
@@ -701,7 +773,7 @@ def run_voice_assistant(
                 data = audio_q.get(timeout=0.5)
             except queue.Empty:
                 if verbose_progress() and time.time() - last_heartbeat >= 10.0:
-                    progress("[escucha] LISTO — esperando «udito»…")
+                    progress(f"[escucha] LISTO — esperando «{ww_label}»…")
                     last_heartbeat = time.time()
                 continue
 
@@ -840,11 +912,11 @@ def run_voice_assistant(
                     user_progress("")
                     if verbose_progress():
                         progress("=" * 52)
-                        progress("  LISTO — di «udito» para activar el asistente")
+                        progress(f"  LISTO — di «{ww_label}» para activar el asistente")
                         progress("=" * 52)
                         progress("")
                     else:
-                        status_line("Escuchando «udito»…")
+                        status_line(f"Escuchando «{ww_label}»…")
 
 
 # compatibilidad etapa 1 / scripts antiguos

@@ -12,12 +12,12 @@
     "voice_energy_min": 0.0002
   },
   "detection": {
-    "wakeword_threshold": 0.42,
-    "wakeword_spike_range_min": 0.08,
-    "wakeword_peak_min": 0.68,
-    "wakeword_margin_min": 0.055,
-    "wakeword_rel_spike_min": 0.055,
-    "hits_required": 2,
+    "wakeword_threshold": 0.35,
+    "wakeword_spike_range_min": 0.06,
+    "wakeword_peak_min": 0.55,
+    "wakeword_margin_min": 0.04,
+    "wakeword_rel_spike_min": 0.04,
+    "hits_required": 1,
     "prob_smooth_window": 3,
     "cool_down_sec": 2.5,
     "post_playback_cooldown_sec": 2.0,

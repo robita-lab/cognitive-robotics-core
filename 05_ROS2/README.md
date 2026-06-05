@@ -62,6 +62,24 @@ En terminal 1 verás líneas como:
 [helpful] rag — Claro, la biblioteca abre de lunes a viernes…
 ```
 
+---
+
+## Prueba wakeword (2 terminales)
+
+**Terminal 1** — ROS2 + ventana de cara:
+
+```bash
+./scripts/ros2/listener-wakeword.sh
+```
+
+**Terminal 2** — micrófono + wakeword:
+
+```bash
+./UDITO
+```
+
+La cara pasa a `listening` al detectar «udito» (`/tmp/udito_wakeword.json` o topics ROS2).
+
 Comprobar el topic a mano:
 
 ```bash
@@ -141,9 +159,6 @@ La pantalla física del robot usará el mismo dibujo que `udito_face.py` con otr
 
 | Archivo | Uso |
 |---------|-----|
-| `05_ROS2/udito_speech_listener.py` | Nodo ejemplo terminal 1 (voz) |
-| `05_ROS2/udito_wakeword_listener.py` | Nodo ejemplo terminal 1 (wakeword) |
-| `scripts/ros2/listener-speech.sh` | Arranque con `source` ROS2 (voz) |
-| `scripts/ros2/listener-wakeword.sh` | Arranque listener wakeword |
-| `scripts/dev/sync-jetson.sh` | Sincronizar código wakeword + robot a Jetson |
-| `scripts/udito/face-sim.sh` | Ejemplo A (ventana) |
+| `05_ROS2/udito_wakeword_listener.py` | Listener consola (debug, sin ventana) |
+| `scripts/ros2/listener-wakeword.sh` | T1 prueba wakeword: ROS2 + cara (`face-sim --wakeword`) |
+| `scripts/udito/face-sim.sh` | Ventana ojos (`--wakeword` = modo wakeword) |
