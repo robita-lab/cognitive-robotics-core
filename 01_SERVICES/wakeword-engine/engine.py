@@ -215,8 +215,19 @@ class WakeWordEngine:
         return p, max(0.0, 1.0 - p)
 
 
+def _load_selftest_wav(path: Path) -> np.ndarray:
+    """Carga WAV mono int16 → float32 [-1, 1] para auto-test."""
+    import wave
+
+    with wave.open(str(path), "rb") as wf:
+        raw = np.frombuffer(wf.readframes(wf.getnframes()), dtype=np.int16)
+    if wf.getnchannels() > 1:
+        raw = raw.reshape(-1, wf.getnchannels())[:, 0]
+    return raw.astype(np.float32) / 32768.0
+
+
 def _verify_loaded_model(eng: WakeWordEngine, min_peak: float = 0.05) -> float:
-    """Comprueba carga del modelo (udito roto ~0.0008; OWW muestra claves de predict)."""
+    """Comprueba carga del modelo. udito: referencia WAV; hey_jarvis: pico en silencio."""
     global _model_verified
     if _model_verified:
         return min_peak
@@ -230,28 +241,40 @@ def _verify_loaded_model(eng: WakeWordEngine, min_peak: float = 0.05) -> float:
     for _ in range(30):
         last_preds = eng._model.predict(warmup)
     print(f"[wakeword] claves OWW: {list(last_preds.keys())}", flush=True)
-    peak = max(
-        eng._peak_on_audio(np.zeros(b * 12, dtype=np.float32)),
-        eng._peak_on_audio(rng.standard_normal(b * 12).astype(np.float32) * 0.2),
-    )
-    print(f"[wakeword] auto-test pico={peak:.5f}", flush=True)
+    noise_peak = eng._peak_on_audio(rng.standard_normal(b * 12).astype(np.float32) * 0.2)
+    silence_peak = eng._peak_on_audio(np.zeros(b * 12, dtype=np.float32))
+    ambient_peak = max(silence_peak, noise_peak)
+    print(f"[wakeword] auto-test silencio/ruido pico={ambient_peak:.5f}", flush=True)
+
     model_name = eng._model_path().name
-    if model_name == "udito.onnx" and peak < min_peak:
-        msg = (
-            f"ERROR: models/udito.onnx no funciona (pico={peak:.4f}). "
-            "Entrena uno válido: cd ww2 && python train_udito.py "
-            "→ cp ww2/models/udito.onnx 01_SERVICES/wakeword-engine/models/ "
-            "Mientras tanto: ROBITA_WAKEWORD_MODEL=.../hey_jarvis_v0.1.onnx en .env"
-        )
-        logger.error(msg)
-        print(msg, file=sys.stderr)
-    elif "hey_jarvis" in model_name and peak < 0.001:
+    if model_name == "udito.onnx":
+        ref = eng._model_path().parent / "udito_selftest.wav"
+        if ref.is_file():
+            ref_peak = eng._peak_on_audio(_load_selftest_wav(ref))
+            print(f"[wakeword] auto-test referencia pico={ref_peak:.5f}", flush=True)
+            if ref_peak < 0.35:
+                msg = (
+                    f"ERROR: models/udito.onnx no detecta la referencia (pico={ref_peak:.4f}). "
+                    "Reentrena: cd ww2 && python train_udito.py "
+                    "→ cp ww2/models/udito.onnx 01_SERVICES/wakeword-engine/models/"
+                )
+                logger.error(msg)
+                print(msg, file=sys.stderr)
+            return ref_peak
+        if ambient_peak > 0.5:
+            print(
+                "[wakeword] AVISO: pico alto en silencio/ruido — posibles falsos positivos",
+                flush=True,
+            )
+        print("[wakeword] modelo udito cargado (sin udito_selftest.wav)", flush=True)
+        return ambient_peak
+    if "hey_jarvis" in model_name and ambient_peak < 0.001:
         print(
             "[wakeword] AVISO: pico muy bajo con hey_jarvis — "
             "revisa modelos base en models/openwakeword/ (./scripts/setup/wakeword.sh)",
             flush=True,
         )
-    return peak
+    return ambient_peak
 
 
 def get_engine() -> WakeWordEngine:

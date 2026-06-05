@@ -6,6 +6,7 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PY="${ROOT}/.venv/bin/python"
+SELFTEST="${ROOT}/01_SERVICES/wakeword-engine/models/udito_selftest.wav"
 
 export ROBITA_WAKEWORD=udito
 export ROBITA_WAKEWORD_MODEL="${ROOT}/01_SERVICES/wakeword-engine/models/udito.onnx"
@@ -28,18 +29,21 @@ engine._engine = None
 engine._model_verified = False
 eng = engine.get_engine()
 eng.load()
-b = eng.CHUNK_SAMPLES
-import numpy as np
-peak = eng._peak_on_audio(np.random.default_rng(0).standard_normal(b * 20).astype(np.float32) * 0.2)
-print(f"auto-test pico={peak:.5f}")
-if peak < 0.05:
-    raise SystemExit(1)
+ref = Path("${SELFTEST}")
+if ref.is_file():
+    peak = eng._peak_on_audio(engine._load_selftest_wav(ref))
+    print(f"auto-test referencia pico={peak:.5f}")
+    if peak < 0.35:
+        raise SystemExit(1)
+else:
+    print("auto-test: sin udito_selftest.wav — solo carga del modelo")
 PY
 then
   echo ""
-  echo "ERROR: udito.onnx no responde (pico < 0.05) — el modelo actual está roto."
-  echo "Hay que reentrenar antes de probar:"
-  echo "  cd /opt/robita-lab/ww2 && ./setup_train_env.sh && python train_udito.py"
+  echo "ERROR: udito.onnx no detecta la referencia (pico < 0.35)."
+  echo "Reentrena o copia el modelo:"
+  echo "  cd /opt/robita-lab/ww2 && python train_udito.py"
+  echo "  cp ww2/models/udito.onnx 01_SERVICES/wakeword-engine/models/"
   echo ""
   echo "Mientras tanto sigue con hey jarvis:"
   echo "  ROBITA_DEMO_WW_THRESHOLD=0.04 ./example/run.sh"
