@@ -116,12 +116,18 @@ class BasicQAManager:
         return False
     
     def _matches_keywords(self, query: str, keywords: List[str]) -> bool:
-        """Verifica si la consulta coincide con palabras clave"""
+        """Verifica si la consulta coincide con palabras clave (sin falsos «ia» en «informativo»)."""
         if not keywords:
             return False
-        
+
         for keyword in keywords:
-            if keyword.lower() in query:
+            kw = keyword.lower().strip()
+            if not kw:
+                continue
+            if len(kw) <= 3:
+                if re.search(rf"\b{re.escape(kw)}\b", query):
+                    return True
+            elif kw in query:
                 return True
         return False
     

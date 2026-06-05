@@ -1,0 +1,166 @@
+{
+  "comment": "Comandos directos a la pantalla (sin RAG). Tras wakeword, di la frase.",
+  "expressions": [
+    {
+      "id": "sad",
+      "reply": "Así es una cara triste.",
+      "keywords": [
+        "cara triste", "pon cara triste", "ponme cara triste", "estás triste",
+        "como es una cara triste", "haz una cara triste", "expresion triste",
+        "expresión triste", "muestra triste", "pon triste"
+      ]
+    },
+    {
+      "id": "happy",
+      "reply": "Así es una cara alegre.",
+      "keywords": [
+        "cara alegre", "cara feliz", "sonríe", "sonrie", "son ríe", "son rie", "sonrisa", "sonre", "sonri",
+        "como es una cara alegre", "haz una cara alegre", "expresion alegre",
+        "expresión alegre", "muestra feliz", "pon alegre", "pon feliz"
+      ]
+    },
+    {
+      "id": "thinking",
+      "reply": "Cara pensativa.",
+      "keywords": [
+        "cara pensativa", "pensando", "piensa", "como es una cara pensativa",
+        "haz cara pensativa", "expresion pensativa", "expresión pensativa"
+      ]
+    },
+    {
+      "id": "laugh",
+      "reply": "Cara de risa.",
+      "keywords": [
+        "cara de risa", "cara risa", "ríete", "riete", "expresion de risa",
+        "expresión de risa", "haz una cara de risa"
+      ]
+    },
+    {
+      "id": "neutral",
+      "reply": "Cara neutral.",
+      "keywords": [
+        "cara neutral", "cara normal", "sin expresion", "sin expresión",
+        "cara seria", "cara sería", "expresion neutral"
+      ]
+    },
+    {
+      "id": "surprised",
+      "reply": "¡Sorpresa!",
+      "keywords": [
+        "cara sorprendida", "sorprendido", "sorpresa", "asombro", "wow",
+        "como es una cara sorprendida", "haz cara sorprendida"
+      ]
+    },
+    {
+      "id": "angry",
+      "reply": "Cara enfadada.",
+      "keywords": [
+        "cara enfadada", "cara enojada", "enfadado", "enojado", "rabia",
+        "expresion enfadada", "expresión enfadada", "haz cara enfadada"
+      ]
+    },
+    {
+      "id": "sleepy",
+      "reply": "Tengo sueño.",
+      "keywords": [
+        "cara dormida", "cansado", "sueño", "sueno", "sleepy",
+        "ojos cansados", "haz cara dormida"
+      ]
+    },
+    {
+      "id": "love",
+      "reply": "Cara enamorada.",
+      "keywords": [
+        "cara enamorada", "amor", "corazones", "te quiero", "cariño", "carino",
+        "expresion de amor", "expresión de amor"
+      ]
+    },
+    {
+      "id": "confused",
+      "reply": "No entiendo.",
+      "keywords": [
+        "cara confundida", "confundido", "perplejo", "no entiendo la cara",
+        "expresion confundida", "expresión confundida"
+      ]
+    },
+    {
+      "id": "scared",
+      "reply": "¡Qué miedo!",
+      "keywords": [
+        "cara de miedo", "miedo", "asustado", "susto", "expresion de miedo",
+        "expresión de miedo", "haz cara de miedo"
+      ]
+    },
+    {
+      "id": "wink",
+      "reply": "Guiño un ojo.",
+      "keywords": [
+        "guiña", "guina", "guiñame", "guiname", "guiño", "guino",
+        "guiña un ojo", "guina un ojo", "wink", "pestañeo"
+      ]
+    },
+    {
+      "id": "tongue",
+      "reply": "Lengua fuera.",
+      "keywords": [
+        "saca la lengua", "sacame la lengua", "lengua fuera", "lengua afuera",
+        "haz lengua", "pon la lengua"
+      ]
+    },
+    {
+      "id": "closed",
+      "reply": "Ojos cerrados.",
+      "keywords": [
+        "cierra los ojos", "ojos cerrados", "cara cerrada", "pestañas cerradas",
+        "haz ojos cerrados"
+      ]
+    },
+    {
+      "id": "wide",
+      "reply": "Ojos bien abiertos.",
+      "keywords": [
+        "ojos grandes", "ojos abiertos", "abre los ojos", "ojos muy abiertos",
+        "cara de ojos grandes"
+      ]
+    },
+    {
+      "id": "listening",
+      "reply": "Te escucho.",
+      "keywords": [
+        "cara escuchando", "modo escucha", "estoy escuchando", "te escucho",
+        "expresion escuchando"
+      ]
+    },
+    {
+      "id": "speaking",
+      "reply": "Estoy hablando.",
+      "keywords": [
+        "cara hablando", "modo habla", "estoy hablando", "expresion hablando"
+      ]
+    },
+    {
+      "id": "proud",
+      "reply": "Cara orgullosa.",
+      "keywords": [
+        "cara orgullosa", "orgulloso", "orgullo", "expresion orgullosa",
+        "expresión orgullosa", "haz cara orgullosa"
+      ]
+    },
+    {
+      "id": "idle",
+      "reply": "Cara en reposo.",
+      "keywords": [
+        "cara en reposo", "cara idle", "reposo", "cara esperando",
+        "modo espera", "cara tranquila"
+      ]
+    },
+    {
+      "id": "curious",
+      "reply": "Cara curiosa.",
+      "keywords": [
+        "cara curiosa", "curioso", "interesado", "interesada",
+        "expresion curiosa", "expresión curiosa", "como es una cara curiosa"
+      ]
+    }
+  ]
+}

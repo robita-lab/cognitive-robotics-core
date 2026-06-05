@@ -1,18 +1,18 @@
 import os
 os.environ.setdefault("CUDA_VISIBLE_DEVICES", "")
 
-from fastapi import FastAPI, UploadFile, File
-from fastapi.websockets import WebSocket
 import io
 import logging
 import wave
 
 import numpy as np
+from fastapi import FastAPI, File, UploadFile
+from fastapi.websockets import WebSocket
 
 from Detector_wakeword import run_inference, WAKEWORD_THRESHOLD, SAMPLE_RATE
 
 logging.basicConfig(level=logging.INFO)
-app = FastAPI(title="Wakeword Engine", version="1.0")
+app = FastAPI(title="Wakeword Engine", version="2.0")
 
 
 def _audio_bytes_to_float32(audio_bytes: bytes) -> np.ndarray:
@@ -37,13 +37,12 @@ def _detect_from_bytes(audio_bytes: bytes) -> tuple[bool, float]:
         return False, 0.0
     block = audio[-SAMPLE_RATE:] if audio.size > SAMPLE_RATE else audio
     prob = run_inference(block)
-    detected = prob >= WAKEWORD_THRESHOLD
-    return detected, float(prob)
+    return prob >= WAKEWORD_THRESHOLD, float(prob)
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "engine": "tflite", "threshold": WAKEWORD_THRESHOLD}
+    return {"status": "ok", "engine": "openwakeword", "threshold": WAKEWORD_THRESHOLD}
 
 
 @app.post("/detect")

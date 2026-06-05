@@ -1,104 +1,66 @@
-# Adaptador físico UDITO
+# Adaptador físico UDITO (Jetson offline)
 
-Código del **cuerpo** del robot: micrófono, wakeword, grabación VAD, saludo local (Piper) y consulta al **cerebro** por HTTP.
+Código del **cuerpo** del robot: micrófono, wakeword, STT, RAG y TTS **locales** en la Jetson.
 
-Guía completa: [`DEPLOY_UDITO.md`](../../DEPLOY_UDITO.md)
+Guía: [DEPLOY_JETSON_OFFLINE.md](../../DEPLOY_JETSON_OFFLINE.md) · Scripts: [scripts/README.md](../../scripts/README.md)
+
+```bash
+cd /opt/robita-lab
+./scripts/setup/jetson.sh
+./scripts/setup/models-download.sh
+./UDITO
+```
+
+Modo cerebro remoto (`udito.py` edge): archivado en [`_archive/modo-online/adapters/udito.py`](../../_archive/modo-online/adapters/udito.py).
 
 ---
 
-## Archivos
+## Archivos activos
 
 | Archivo | Rol |
 |---------|-----|
-| `udito.py` | Robot físico → `POST /voice-query` al cerebro en red |
-| `udito_standalone.py` | Todo local (STT + RAG + TTS en el mismo PC) |
-| `robot_common.py` | Bucle wakeword, calibración, VAD, reproducción audio |
-| `requirements-edge.txt` | Dependencias mínimas para el edge (Jetson) |
+| `udito_standalone.py` | Pipeline offline (STT + RAG + TTS en proceso) |
+| `robot_common.py` | Bucle wakeword, VAD, calibración |
+| `udito_speech.py` | TTS con emociones + ROS2 `/udito/speech_out` |
+| `config/session.json` | VAD, speaker lock, tiempos de grabación |
+| `voice_features.py` | MFCC para speaker lock |
 
 ---
 
-## Scripts (raíz del repo)
-
-| Script | Equivalente anterior | Uso |
-|--------|----------------------|-----|
-| `./scripts/udito.sh` | etapa2-edge | Robot físico + cerebro remoto |
-| `./scripts/udito_standalone.sh` | etapa1-local | Un solo PC, sin Docker cerebro |
-| `./scripts/udito_virtual.sh` | etapa2-servidor | Cerebro con Docker Compose |
-| `./scripts/launch.sh` | — | Cerebro sin Docker (venv + uvicorn) |
-
----
-
-## Flujo de voz (robot físico)
+## Flujo offline
 
 ```
-«udito» (wakeword TFLite)
-  → saludo desde 04_KNOWLEDGE_CORE/responses/agent.json (Piper local)
+«udito» (OpenWakeWord + udito.onnx)
+  → saludo Piper (agent.json)
   → grabación pregunta (VAD)
-  → POST /voice-query al cerebro
-       → STT → ¿despedida? → conversation.json
-       → si no → RAG (qa.json + raw-docs) → TTS
-  → reproduce audio WAV del cerebro
+  → Whisper STT → RAG → Piper TTS
   → vuelve a escuchar wakeword
 ```
+
+ROS2: `/udito/wakeword`, `/udito/state` — [05_ROS2/README.md](../../05_ROS2/README.md)
 
 ---
 
 ## Configuración
 
-Copiar y editar en la raíz del repo:
-
 ```bash
 cp .env.example .env
+./scripts/udito/audio-config.sh   # mic + altavoz
 ```
 
 | Variable | Descripción |
 |----------|-------------|
-| `ROBITA_SERVER_URL` | Cerebro, p. ej. `http://192.168.1.100:8000` |
-| `ROBITA_AUDIO_INPUT` | Índice del micrófono USB |
-| `ROBITA_AUDIO_OUTPUT` | Altavoz ALSA (`default` o `plughw:3,0`) |
-| `ROBITA_KNOWLEDGE_CORE` | Textos de saludo/aviso locales |
+| `ROBITA_AUDIO_INPUT` | `respeaker` o índice ALSA |
+| `ROBITA_AUDIO_OUTPUT` | `pulse`, `hdmi`, `platform` |
+| `ROBITA_KNOWLEDGE_CORE` | Textos en `04_KNOWLEDGE_CORE/responses/` |
 
-Probar audio: `../../scripts/test-audio.sh`
-
----
-
-## Arranque
-
-**Con cerebro en otro equipo (Jetson + servidor):**
-
-```bash
-# Servidor
-./scripts/launch.sh
-
-# Robot
-export ROBITA_SERVER_URL=http://IP_SERVIDOR:8000
-./scripts/udito.sh
-```
-
-**Todo en un PC:**
-
-```bash
-./scripts/udito_standalone.sh
-```
-
-El modo standalone permite **una segunda pregunta** tras la primera sin repetir el wakeword.
+Wakeword: `01_SERVICES/wakeword-engine/config/wakeword.json`
 
 ---
 
 ## Textos hablados
 
-No están hardcodeados en Python. Editar:
-
 - Saludo: `04_KNOWLEDGE_CORE/responses/agent.json`
-- Despedida: `04_KNOWLEDGE_CORE/responses/conversation.json` (cerebro)
-- Q&A fijo: `04_KNOWLEDGE_CORE/responses/qa.json` (RAG)
+- Despedida / Q&A: `conversation.json`, `qa.json`
 
-Tras cambiar despedida o Q&A, reiniciar el cerebro: `./scripts/stop.sh && ./scripts/launch.sh`
-
----
-
-## Wakeword
-
-- Modelo: `01_SERVICES/wakeword-engine/micro_model.tflite`
-- Lógica: `01_SERVICES/wakeword-engine/Detector_wakeword.py`
-- Umbral y calibración: `robot_common.py` + `wake_word_config.json`
+Tras cambios en JSON, reinicia `./UDITO`.

@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+# Atajo desde la raíz del proyecto → Principal UDITO (offline).
+exec "$(cd "$(dirname "$0")" && pwd)/scripts/udito/start.sh" "$@"

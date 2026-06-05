@@ -56,17 +56,32 @@ class WhisperSTT:
         if self._model is not None:
             return
         try:
+            import os
             from faster_whisper import WhisperModel
             stt = self.config.get("stt", {})
+            model_name = os.getenv("WHISPER_MODEL") or stt.get("model_name", "small")
             self._model = WhisperModel(
-                stt.get("model_name", "small"),
+                model_name,
                 device=stt.get("device", "cpu"),
                 compute_type=stt.get("compute_type", "int8"),
             )
-            logger.info("Modelo Whisper cargado: %s", stt.get("model_name", "small"))
+            logger.info("Modelo Whisper cargado: %s", model_name)
         except Exception as e:
             logger.exception("Error cargando Whisper: %s", e)
             raise
+
+    def release_model(self) -> None:
+        """Libera Whisper de RAM (útil en Jetson tras transcribir)."""
+        if self._model is None:
+            return
+        try:
+            del self._model
+        except Exception:
+            pass
+        self._model = None
+        import gc
+        gc.collect()
+        logger.info("Modelo Whisper liberado de RAM")
 
     def transcribe(self, audio_path: str, language: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """
@@ -77,7 +92,16 @@ class WhisperSTT:
         lang = language or self.config.get("stt", {}).get("language", "es")
         beam_size = self.config.get("stt", {}).get("beam_size", 5)
         try:
-            segments, _ = self._model.transcribe(audio_path, beam_size=beam_size, language=lang)
+            segments, _ = self._model.transcribe(
+                audio_path,
+                beam_size=beam_size,
+                language=lang,
+                condition_on_previous_text=False,
+                vad_filter=True,
+                compression_ratio_threshold=2.2,
+                log_prob_threshold=-0.8,
+                no_speech_threshold=0.55,
+            )
             text = " ".join(s.text for s in segments).strip()
             if self.config.get("postprocessing", {}).get("strip_whitespace", True):
                 text = text.strip()

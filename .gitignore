@@ -1,15 +1,36 @@
-.venv/
-__pycache__/
-*.pyc
-*.pyo
-.pytest_cache/
-logs/
-*.pid
 .env
 .env.local
+.venv/
+logs/*.log
+logs/*.pid
+_archive/historial/
+__pycache__/
+**/__pycache__/
+*.pyc
+.pytest_cache/
+.DS_Store
+*.swp
+
+# Local / secretos (no subir)
 token_github.txt
-*.code-workspace
+ww2/
+WakeWord-Project/
+=0.4.6
 =*
+*.code-workspace
+
+# Modelos wakeword entrenados (opcional en git; copiar con setup/wakeword o sync-jetson)
+# 01_SERVICES/wakeword-engine/models/udito.onnx
+ (descargar con scripts/setup/models-download.sh)
+data/huggingface/
 01_SERVICES/rag-engine/data/rag_cache/
 01_SERVICES/rag-engine/data/memory/
-01_SERVICES/rag-engine/config/huggingface_token.txt
+
+# Piper + voces (instalar en Jetson: scripts/setup/piper-jetson.sh + download-piper-voices-*.sh)
+01_SERVICES/tts-engine/piper/
+
+# Binarios locales
+*.x86_64.bak
+
+# Temporales UDITO
+/tmp/udito_speech_out.json
