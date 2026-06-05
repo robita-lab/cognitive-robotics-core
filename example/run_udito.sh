@@ -10,7 +10,7 @@ SELFTEST="${ROOT}/01_SERVICES/wakeword-engine/models/udito_selftest.wav"
 
 export ROBITA_WAKEWORD=udito
 export ROBITA_WAKEWORD_MODEL="${ROOT}/01_SERVICES/wakeword-engine/models/udito.onnx"
-export ROBITA_DEMO_WW_THRESHOLD="${ROBITA_DEMO_WW_THRESHOLD:-0.35}"
+export ROBITA_DEMO_WW_THRESHOLD="${ROBITA_DEMO_WW_THRESHOLD:-0.30}"
 
 if [[ ! -f "$ROBITA_WAKEWORD_MODEL" ]]; then
   echo "ERROR: falta $ROBITA_WAKEWORD_MODEL"

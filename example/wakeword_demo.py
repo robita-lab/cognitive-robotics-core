@@ -87,6 +87,38 @@ def _check_env(phrase: str) -> None:
         raise SystemExit(1)
 
 
+def _warn_phrase_model_mismatch(phrase: str, model_path: Path) -> None:
+    """Avisa si la frase del .env no coincide con el modelo cargado."""
+    name = model_path.name.lower()
+    pl = phrase.lower()
+    if "udito" in pl and "jarvis" in name:
+        print(
+            "\n*** AVISO: ROBITA_WAKEWORD=udito pero el modelo es hey_jarvis.\n"
+            "    Cambia .env:\n"
+            "      ROBITA_WAKEWORD_MODEL=.../models/udito.onnx\n"
+            "    O usa: ./example/run_udito.sh\n",
+            flush=True,
+        )
+    elif "jarvis" in pl and "udito" in name:
+        print(
+            "\n*** AVISO: ROBITA_WAKEWORD=hey jarvis pero el modelo es udito.onnx.\n"
+            "    Di «udito» o cambia .env / usa ./example/run_udito.sh\n",
+            flush=True,
+        )
+    elif "jarvis" in pl and "jarvis" in name:
+        print(
+            "\n  (Modelo hey jarvis: di la frase en INGLÉS, claro: «hey jarvis»)\n"
+            "  Para «udito»: ./example/run_udito.sh\n",
+            flush=True,
+        )
+    elif "udito" in pl and "udito" in name:
+        print(
+            "\n  (Modelo udito: di «udito» claro, cerca del mic)\n"
+            "  Umbral típico: ROBITA_DEMO_WW_THRESHOLD=0.30\n",
+            flush=True,
+        )
+
+
 def _calibrate_floor(dev, ch: int, rate: int, seconds: float = 2.0) -> float:
     """Piso de ruido (mediana por bloques — no subir si hablas en la calibración)."""
     print(f"Calibrando ({seconds:.0f}s — NO hables, espera…) ", end="", flush=True)
@@ -119,6 +151,7 @@ def listen(phrase: str) -> None:
     ww.load()
     eng = get_engine()
     model_path = eng._model_path()
+    _warn_phrase_model_mismatch(phrase, model_path)
     prob_min = _threshold(ww)
     dev = resolve_audio_input()
     ch, _downmix = input_capture_channels(dev)
