@@ -1,0 +1,36 @@
+{
+  "wake_word": "udito",
+  "model": {
+    "path": "models/udito.onnx",
+    "framework": "onnx",
+    "vad_threshold": 0,
+    "base_models_dir": "models/openwakeword"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "chunk_ms": 80,
+    "voice_energy_min": 0.0002
+  },
+  "detection": {
+    "wakeword_threshold": 0.42,
+    "wakeword_spike_range_min": 0.08,
+    "wakeword_peak_min": 0.68,
+    "wakeword_margin_min": 0.055,
+    "wakeword_rel_spike_min": 0.055,
+    "hits_required": 2,
+    "prob_smooth_window": 3,
+    "cool_down_sec": 2.5,
+    "post_playback_cooldown_sec": 2.0,
+    "post_greet_drain_sec": 0.15,
+    "calibrate_secs": 2.5,
+    "reject_prob_at_or_above": 1.0
+  },
+  "ros2": {
+    "enabled": true,
+    "require_daemon": false,
+    "node_name": "udito_wakeword",
+    "topic_wakeword": "/udito/wakeword",
+    "topic_state": "/udito/state",
+    "event_file": "/tmp/udito_wakeword.json"
+  }
+}

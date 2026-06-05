@@ -155,7 +155,8 @@ def status_line(msg: str, *, end: str = "\n") -> None:
 
 
 SERVICES = ROOT / "01_SERVICES"
-WW_CONFIG = SERVICES / "wakeword-engine" / "config" / "wake_word_config.json"
+WW_CONFIG = SERVICES / "wakeword-engine" / "config" / "wakeword.json"
+SESSION_CONFIG = Path(__file__).resolve().parent / "config" / "session.json"
 
 WAKEWORD_ONLY = re.compile(
     r"^(udito|uito|udito\.|hola udito|oye udito|hey udito|udíto)[\s\.\?\!]*$",
@@ -194,44 +195,22 @@ def wait_for_playback_idle(timeout: float = 10.0) -> None:
 
 
 def load_detection_cfg() -> dict:
-    defaults = {
-        "wakeword_threshold": 0.52,
-        "wakeword_spike_range_min": 0.10,
-        "wakeword_peak_min": 0.68,
-        "wakeword_margin_min": 0.055,
-        "wakeword_rel_spike_min": 0.055,
-        "hits_required": 1,
-        "prob_smooth_window": 3,
-        "cool_down_sec": 2.5,
-        "post_playback_cooldown_sec": 2.5,
-        "post_greet_drain_sec": 0.25,
-        "voice_margin": 1.5,
-        "audio_pre_roll_sec": 0.6,
-        "speaker_lock_enabled": True,
-        "speaker_lock_threshold": 0.74,
-        "speaker_lock_min_ratio": 0.45,
-        "speaker_enroll_sec": 0.5,
-        "listen_onset_timeout_sec": 5.0,
-        "min_record_speech_sec": 1.1,
-        "min_stt_audio_sec": 0.85,
-        "wakeword_class_index": 1,
-        "reject_prob_at_or_above": 1.0,
-        "calibrate_secs": 2.5,
-        "speech_margin": 1.8,
-        "silence_after_speech_sec": 0.8,
-        "max_record_sec": 7.0,
-        "min_speech_sec": 0.5,
-        "min_question_chars": 8,
-    }
+    """Une detección wakeword (JSON del módulo) + sesión de voz (JSON del robot)."""
+    cfg: dict = {}
     try:
         with open(WW_CONFIG, encoding="utf-8") as f:
-            det = json.load(f).get("detection", {})
-        for k in defaults:
-            if k in det:
-                defaults[k] = det[k]
-    except Exception:
-        pass
-    return defaults
+            ww_data = json.load(f)
+        cfg.update(ww_data.get("detection", {}))
+        if "wake_word" in ww_data:
+            cfg["wake_word"] = ww_data["wake_word"]
+    except Exception as exc:
+        log.warning("No se pudo leer %s: %s", WW_CONFIG, exc)
+    try:
+        with open(SESSION_CONFIG, encoding="utf-8") as f:
+            cfg.update(json.load(f))
+    except Exception as exc:
+        log.warning("No se pudo leer %s: %s", SESSION_CONFIG, exc)
+    return cfg
 
 
 def block_rms(block: np.ndarray) -> float:
@@ -453,7 +432,7 @@ def play_wav_bytes(data: bytes) -> None:
         path = tmp.name
     try:
         if not play_wav_file(path):
-            progress("[audio] ERROR — no se oyó nada. Ejecuta: ./scripts/test-audio-standalone.sh")
+            progress("[audio] ERROR — no se oyó nada. Ejecuta: ./scripts/udito/audio-test.sh")
     finally:
         try:
             os.unlink(path)
@@ -698,6 +677,14 @@ def run_voice_assistant(
             log.warning("Dispositivo nativo %s Hz — verifica ROBITA_AUDIO_INPUT", cap_hz)
 
     progress("")
+    try:
+        from ros2_bridge import log_ros2_status, publish_state
+
+        log_ros2_status()
+        publish_state("wakeword_listening")
+    except ImportError:
+        pass
+
     if verbose_progress():
         progress("=" * 52)
         progress("  LISTO — di «udito» para activar el asistente")
@@ -790,6 +777,18 @@ def run_voice_assistant(
                 session_active = True
 
                 progress(f"\n[wake] udito detectado (prob={prob:.2f}, margen={margin:.2f})", always=True)
+                try:
+                    from ros2_bridge import publish_state, publish_wakeword_detected
+
+                    publish_wakeword_detected(
+                        wake_word=str(cfg.get("wake_word", "udito")),
+                        probability=prob,
+                        margin=margin,
+                        baseline=ww_baseline,
+                    )
+                    publish_state("wakeword_detected", probability=prob)
+                except ImportError:
+                    pass
 
                 speaker_lock: Optional[SpeakerLock] = None
                 if _speaker_lock_enabled(cfg):
@@ -818,6 +817,12 @@ def run_voice_assistant(
 
                 user_progress("[sesión] escuchando…")
                 try:
+                    from ros2_bridge import publish_state
+
+                    publish_state("session_listening")
+                except ImportError:
+                    pass
+                try:
                     # Sin pre_roll: evita que Whisper transcriba el eco del saludo TTS
                     on_session(audio_q, speaker_lock, None)
                 finally:
@@ -825,6 +830,12 @@ def run_voice_assistant(
                     buffer = np.zeros(0, dtype=np.float32)
                     session_active = False
                     last_trigger = time.time()
+                    try:
+                        from ros2_bridge import publish_state
+
+                        publish_state("idle")
+                    except ImportError:
+                        pass
                     mark_playback_active(float(cfg.get("post_playback_cooldown_sec", 3.0)))
                     user_progress("")
                     if verbose_progress():

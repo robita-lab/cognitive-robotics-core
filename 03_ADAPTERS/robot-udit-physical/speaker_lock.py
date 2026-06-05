@@ -27,7 +27,7 @@ def _preemph(audio: np.ndarray) -> np.ndarray:
 
 
 def voice_embedding(audio: np.ndarray, sample_rate: int = 16000) -> np.ndarray | None:
-    from udito_mfcc_detector import compute_mfcc  # noqa: WPS433
+    from voice_features import compute_mfcc
 
     x = _preemph(audio)
     if x.size < int(sample_rate * 0.25):

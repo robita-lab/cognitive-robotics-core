@@ -12,12 +12,12 @@ UDITO offline publica cada frase hablada con **emoción** y **texto**. Otros nod
 
 ## Por qué dos terminales
 
-El pipeline (`Principal-UDITO`) es **pesado y en tiempo real** (micrófono, wakeword, STT). La **cara** o un **listener ROS2** necesitan un bucle aparte (ventana 30 fps o `rclpy.spin`).
+El pipeline (`udito/start.sh`) es **pesado y en tiempo real** (micrófono, wakeword, STT). La **cara** o un **listener ROS2** necesitan un bucle aparte (ventana 30 fps o `rclpy.spin`).
 
 | Terminal | Proceso | Qué hace |
 |----------|---------|----------|
 | **1** | Cara sim **o** listener ROS2 | Muestra ojos / imprime emociones |
-| **2** | `Principal-UDITO.sh` | Wakeword → STT → RAG → TTS |
+| **2** | `scripts/udito/start.sh` | Wakeword → STT → RAG → TTS |
 
 Si todo va en una sola terminal, la ventana pygame o ROS2 compiten con el audio y es más difícil depurar.
 
@@ -31,10 +31,10 @@ La cara lee el mismo JSON que escribe la voz (`/tmp/udito_speech_out.json`). **N
 cd /opt/robita-lab
 
 # Terminal 1 — ventana con ojos
-./scripts/udito-face-sim.sh
+./scripts/udito/face-sim.sh
 
 # Terminal 2 — pipeline offline
-./scripts/Principal-UDITO.sh
+./scripts/udito/start.sh
 ```
 
 Di «udito», pregunta algo: en la **ventana** cambian los ojos (`happy`, `thinking`, `sorry`, …).
@@ -49,11 +49,11 @@ Requiere ROS2 Humble instalado (`/opt/ros/humble`).
 cd /opt/robita-lab
 
 # Terminal 1 — suscriptor ROS2
-./scripts/udito-ros2-listener.sh
+./scripts/ros2/listener-speech.sh
 
 # Terminal 2 — pipeline (publica en /udito/speech_out si rclpy OK)
 export ROBITA_ROS2_SPEECH=1   # por defecto ya es 1
-./scripts/Principal-UDITO.sh
+./scripts/udito/start.sh
 ```
 
 En terminal 1 verás líneas como:
@@ -74,7 +74,7 @@ ros2 topic echo /udito/speech_out
 ## Ejemplo C — Solo pipeline (una terminal)
 
 ```bash
-./scripts/Principal-UDITO.sh
+./scripts/udito/start.sh
 ```
 
 Sigue escribiendo `/tmp/udito_speech_out.json`. Sin cara ni ROS2 hasta que abras otro proceso.
@@ -82,6 +82,8 @@ Sigue escribiendo `/tmp/udito_speech_out.json`. Sin cara ni ROS2 hasta que abras
 ---
 
 ## Qué publica el pipeline (offline)
+
+### Voz (TTS / RAG)
 
 **Topic:** `/udito/speech_out` (`std_msgs/String`, cuerpo = JSON)
 
@@ -99,13 +101,35 @@ Sigue escribiendo `/tmp/udito_speech_out.json`. Sin cara ni ROS2 hasta que abras
 
 Variables: `ROBITA_ROS2_SPEECH=1` (publicar ROS2), `0` para desactivar solo el topic.
 
+### Wakeword
+
+Config en `01_SERVICES/wakeword-engine/config/wakeword.json` → sección `ros2`.
+
+**Topics:**
+
+| Topic | Cuándo |
+|-------|--------|
+| `/udito/wakeword` | Se detecta «udito» |
+| `/udito/state` | Cambia el estado del bucle (`wakeword_listening`, `session_listening`, `idle`, …) |
+
+**Archivo (sin ROS2):** `/tmp/udito_wakeword.json`
+
+Prueba en terminal 1:
+
+```bash
+./scripts/ros2/listener-wakeword.sh
+```
+
+El JSON de cada evento incluye `"ros2_active": true|false` para que otros nodos sepan si la publicación ROS2 está viva.
+
 ---
 
 ## Siguientes pasos (cuello y ruedas)
 
 | Componente | Topic sugerido | Quién publica |
 |------------|----------------|---------------|
-| Estado | `/udito/state` | Pipeline (`idle`, `listening`, `thinking`, `speaking`) — pendiente |
+| Wakeword | `/udito/wakeword` | Pipeline (al detectar «udito») |
+| Estado | `/udito/state` | Pipeline (`idle`, `wakeword_listening`, `session_listening`, …) |
 | Cuello | `/udito/neck/cmd` | Nodo que escucha emoción/estado |
 | Ruedas | `/cmd_vel` | Nodo navegación (fuera del pipeline de voz) |
 
@@ -117,6 +141,9 @@ La pantalla física del robot usará el mismo dibujo que `udito_face.py` con otr
 
 | Archivo | Uso |
 |---------|-----|
-| `05_ROS2/udito_speech_listener.py` | Nodo ejemplo terminal 1 |
-| `scripts/udito-ros2-listener.sh` | Arranque con `source` ROS2 |
-| `scripts/udito-face-sim.sh` | Ejemplo A (ventana) |
+| `05_ROS2/udito_speech_listener.py` | Nodo ejemplo terminal 1 (voz) |
+| `05_ROS2/udito_wakeword_listener.py` | Nodo ejemplo terminal 1 (wakeword) |
+| `scripts/ros2/listener-speech.sh` | Arranque con `source` ROS2 (voz) |
+| `scripts/ros2/listener-wakeword.sh` | Arranque listener wakeword |
+| `scripts/dev/sync-jetson.sh` | Sincronizar código wakeword + robot a Jetson |
+| `scripts/udito/face-sim.sh` | Ejemplo A (ventana) |

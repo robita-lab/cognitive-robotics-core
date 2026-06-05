@@ -34,13 +34,13 @@ En la Jetson con monitor:
 
 ```bash
 cd /opt/robita-lab
-./scripts/udito-face-sim.sh
+./scripts/udito/face-sim.sh
 ```
 
 **Terminal 2** (pipeline):
 
 ```bash
-./scripts/Principal-UDITO.sh
+./scripts/udito/start.sh
 ```
 
 Cuando UDITO hable, la ventana cambia de emoción (`happy`, `thinking`, `sorry`, `laugh`, …).
@@ -97,5 +97,5 @@ La cara reacciona a **voz**; el cuello puede inclinarse en `listening` / `thinki
 ## Archivos
 
 - `udito_face.py` — dibujo y simulador
-- `scripts/udito-face-sim.sh` — arranque
+- `scripts/udito/face-sim.sh` — arranque
 - `SPEECH_ROS2.md` — emociones y JSON de voz

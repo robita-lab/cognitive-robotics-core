@@ -1,0 +1,16 @@
+{
+  "voice_margin": 1.5,
+  "audio_pre_roll_sec": 0.6,
+  "speaker_lock_enabled": true,
+  "speaker_lock_threshold": 0.74,
+  "speaker_lock_min_ratio": 0.45,
+  "speaker_enroll_sec": 0.5,
+  "listen_onset_timeout_sec": 5.0,
+  "min_record_speech_sec": 1.1,
+  "min_stt_audio_sec": 0.85,
+  "speech_margin": 1.8,
+  "silence_after_speech_sec": 0.8,
+  "max_record_sec": 7.0,
+  "min_speech_sec": 0.5,
+  "min_question_chars": 6
+}

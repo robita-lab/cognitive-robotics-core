@@ -18,7 +18,7 @@ Tras `git pull` en la Jetson, normalmente **no hace falta** volver a instalar si
 
 ```bash
 cd /opt/robita-lab
-./scripts/install-piper-aarch64.sh
+./scripts/setup/piper-jetson.sh
 ```
 
 Ese script descarga Piper oficial aarch64 y deja la carpeta coherente con la arquitectura de la placa.
@@ -41,7 +41,7 @@ Sí. En disco, esta carpeta suele ocupar **~400 MB** (casi todo son las voces `.
 
 ```bash
 cd /opt/robita-lab
-./scripts/install-piper-aarch64.sh          # binario aarch64 (~15 MB descarga)
+./scripts/setup/piper-jetson.sh          # binario aarch64 (~15 MB descarga)
 ./scripts/download-piper-voices-low.sh      # voz ligera en español
 # o: ./scripts/download-piper-voices-male.sh
 ```

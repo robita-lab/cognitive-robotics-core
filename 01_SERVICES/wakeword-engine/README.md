@@ -1,94 +1,80 @@
-# Wakeword «udito» — plataformas
+# Wakeword «udito» — OpenWakeWord + ONNX
 
-## Modelo entrenado (repo correcto)
+## Arquitectura
 
-El wakeword «udito» está en **[dguevaras/UDITO — WakeWord-project](https://github.com/dguevaras/UDITO/tree/master/WakeWord-project)**:
+```
+config/wakeword.json   ← toda la configuración (modelo, audio, umbrales)
+engine.py              ← clase WakeWordEngine (lee JSON, inferencia)
+Detector_wakeword.py   ← entrada del robot (reexporta engine)
+models/
+  udito.onnx           ← modelo entrenado (no en git; copiar manualmente)
+  openwakeword/        ← melspectrogram.onnx + embedding_model.onnx (auto-descarga)
+main.py                ← API HTTP opcional (/detect, /stream)
+```
 
-| Archivo | Formato |
-|---------|---------|
-| `wakeword_model.h5` | Keras (el entrenamiento real) |
-| `Detector_wakeword.py` | Espera `wakeword_model.tflite` (no subido; se genera en Jetson) |
+El robot (`03_ADAPTERS/robot-udit-physical/`) importa `Detector_wakeword as ww` y lee umbrales de detección desde este JSON. La configuración de grabación/VAD/speaker-lock está en `03_ADAPTERS/robot-udit-physical/config/session.json`.
 
-**No es un export openWakeWord `.onnx`** — es CNN + MFCC. En Jetson usamos `udito_mfcc` (tensorflow.lite tras convertir el `.h5`).
+## Configuración (`config/wakeword.json`)
+
+| Sección | Campos | Uso |
+|---------|--------|-----|
+| `wake_word` | nombre | Clave esperada en predicciones OWW |
+| `model` | `path`, `framework`, `vad_threshold`, `base_models_dir` | Ruta al ONNX y modelos base |
+| `audio` | `sample_rate`, `chunk_ms`, `voice_energy_min` | Formato de audio del micrófono |
+| `detection` | `wakeword_threshold`, `hits_required`, `cool_down_sec`, `wakeword_rel_spike_min`, … | Umbrales usados por `robot_common.py` |
+| `ros2` | `enabled`, `topic_wakeword`, `topic_state`, `event_file` | Publicación ROS2 al detectar «udito» |
+
+Edita solo el JSON. No hay umbrales en el código Python.
+
+## ROS2
+
+Al cargar el motor (`engine.load()`), el módulo comprueba si ROS2 está activo (`rclpy` + opcional `require_daemon`).
+
+| Topic | Evento |
+|-------|--------|
+| `/udito/wakeword` | Wakeword detectado (JSON: probabilidad, margen, `ros2_active`) |
+| `/udito/state` | `wakeword_listening`, `wakeword_detected`, `session_listening`, `idle` |
+
+Sin ROS2: escribe `/tmp/udito_wakeword.json` (mismo patrón que la voz).
+
+Listener de prueba (Jetson, terminal 1):
 
 ```bash
-./scripts/fetch-wakeword-udito-repo.sh
-export ROBITA_WAKEWORD_BACKEND=udito_mfcc   # ya es el default en .env
+./scripts/ros2/listener-wakeword.sh
 ```
 
----
+## Instalación del modelo
 
-## Qué hay en GitHub (`cognitive-robotics-core`)
-
-| Archivo | ¿En GitHub? | Notas |
-|---------|-------------|--------|
-| `micro_model.tflite` | Sí (~1 KB) | Antiguo export TFLite; en Jetson suele fallar con `tflite_runtime` + numpy 2 |
-| `udito_model.net` | **No** | Aparece en `config/wake_word.json` pero **nunca se subió** al repo |
-| `models/udito.onnx` | **No** | Export openWakeWord que debes añadir tú |
-
-Descargar lo que sí está en GitHub:
+Copia tu modelo entrenado:
 
 ```bash
-./scripts/fetch-wakeword-from-github.sh
+cp /ruta/a/udito.onnx 01_SERVICES/wakeword-engine/models/udito.onnx
 ```
 
-El modelo entrenado con openWakeWord debe copiarse manualmente a `models/udito.onnx` (o subirse al repo, idealmente con **Git LFS**).
-
----
-
-## Por defecto en Jetson (este repo)
-
-| Backend | Cuándo |
-|---------|--------|
-| **`udito_mfcc`** (default) | Modelo de [dguevaras/UDITO](https://github.com/dguevaras/UDITO/tree/master/WakeWord-project) |
-| `openwakeword` | Solo si tienes un `models/udito.onnx` exportado aparte |
-
-### openWakeWord (opcional)
-
-En **NVIDIA Jetson** también puedes usar **[openWakeWord](https://github.com/dscripka/openWakeWord)** si tienes el `.onnx`:
-
-| Elemento | Ruta / valor |
-|----------|----------------|
-| Código | `oww_detector.py` (usado vía `Detector_wakeword.py`) |
-| Modelo custom entrenado | `models/udito.onnx` (export de tu entrenamiento OWW) |
-| Modelos base (mel + embedding) | `models/openwakeword/*.onnx` |
-| Setup | `./scripts/setup-wakeword-oww.sh` |
-| Inferencia | **ONNX** (`onnxruntime`) — no usa `tflite_runtime` en Jetson |
-
-Variables útiles (`.env`):
+Descarga modelos base OpenWakeWord (primera vez):
 
 ```bash
-ROBITA_WAKEWORD_BACKEND=openwakeword
-ROBITA_WAKEWORD_MODEL=/opt/robita-lab/01_SERVICES/wakeword-engine/models/udito.onnx
+./scripts/setup/wakeword.sh
 ```
 
-Umbrales: `config/wake_word_config.json`.
+## Probar carga
 
----
-
-## Windows (no usar openWakeWord directamente)
-
-En **Windows** el stack del laboratorio **no** usa openWakeWord en el pipeline de producción porque:
-
-- El entorno Windows del repo se montó con **TensorFlow Lite** (`micro_model.tflite`).
-- `tflite_runtime` en Windows encaja con ese flujo; en Jetson falla con numpy 2.x y no es el camino soportado.
-
-| Plataforma | Motor wakeword | Modelo |
-|------------|----------------|--------|
-| **Jetson / Linux** (defecto) | **openWakeWord** | `models/udito.onnx` |
-| **Windows** | **TFLite** | `micro_model.tflite` (ver `_archive/historial/wakeword-tflite/`) |
-
-En Windows: entrenar/exportar para TFLite o copiar el `.tflite` histórico; **no** ejecutar `setup-wakeword-oww.sh` como sustituto sin adaptar el código.
-
-Para portar un modelo OWW de Linux a Windows, re-exportar a `.tflite` y usar el detector TFLite legacy (no está en la ruta por defecto de `udito_standalone.py` en Jetson).
-
----
-
-## Resumen
-
-```
-Jetson  → openWakeWord + udito.onnx   (DEFAULT en Principal-UDITO / udito_standalone)
-Windows → TFLite + micro_model.tflite (legado; no mezclar con oww_detector.py)
+```bash
+cd /opt/robita-lab
+source .venv/bin/activate
+python -c "
+import sys; sys.path.insert(0,'01_SERVICES/wakeword-engine')
+from engine import load; load(); print('OK')
+"
 ```
 
-Documentación Jetson: [DEPLOY_JETSON_OFFLINE.md](../../DEPLOY_JETSON_OFFLINE.md).
+## Dependencias
+
+Ver `requirements.txt`. En PC (Python 3.12, solo ONNX):
+
+```bash
+pip install onnxruntime 'numpy<2.1'
+pip install --no-deps 'openwakeword>=0.6.0'
+```
+
+`vad_threshold` en JSON debe ser `0` (VAD lo hace el robot en `session.json`). Si subes el umbral OWW, copia `silero_vad.onnx` a `openwakeword/resources/models/` o usa `./scripts/setup/wakeword.sh`.

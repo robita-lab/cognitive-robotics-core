@@ -2,7 +2,7 @@
 
 Guía para ejecutar **wakeword + STT + RAG + TTS** en la Jetson **sin cerebro remoto ni servidor en la red**.
 
-El servidor del laboratorio es **opcional** (solo para copiar modelos una vez con `sync-models-from-server.sh`). **UDITO debe funcionar con el servidor apagado o sin LAN.**
+**UDITO funciona sin servidor ni LAN** (todo local en la Jetson).
 
 Repositorio: [cognitive-robotics-core](https://github.com/robita-lab/cognitive-robotics-core).
 
@@ -18,11 +18,11 @@ git clone -b develop https://github.com/robita-lab/cognitive-robotics-core.git /
 
 ## Qué modo usar
 
-| Escenario | Script |
-|-----------|--------|
-| **Jetson offline (este documento)** | `./scripts/setup-jetson-offline.sh` luego **`./scripts/Principal-UDITO.sh`** o **`./UDITO`** |
-| Jetson + cerebro en servidor LAN | `./scripts/udito.sh` con `ROBITA_SERVER_URL` |
-| Servidor (cerebro Docker/venv) | `./scripts/launch.sh` |
+| Escenario | Comando |
+|-----------|---------|
+| **Jetson offline (este documento)** | `./scripts/setup/jetson.sh` → `./UDITO` |
+
+Modo cerebro remoto / Docker: archivado en [`_archive/modo-online/`](_archive/modo-online/README.md).
 
 El modo standalone corre un solo proceso Python (`udito_standalone.py`) que carga wakeword, Whisper, RAG y Piper localmente.
 
@@ -48,7 +48,7 @@ sudo apt install -y python3.10-venv python3-pip portaudio19-dev alsa-utils \
   libopenblas-dev libsndfile1 curl git
 ```
 
-Si `python3 -m venv` falla por `ensurepip`, el script `setup-venv.sh` crea el `.venv` con `get-pip.py` automáticamente (no requiere pasos extra).
+Si `python3 -m venv` falla por `ensurepip`, el script `setup/venv.sh` crea el `.venv` con `get-pip.py` automáticamente (no requiere pasos extra).
 
 ### 2. Clonar o instalar el repo
 
@@ -61,22 +61,18 @@ git clone https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-
 cd /opt/robita-lab
 ```
 
-**Opción B — tarball mínimo (repo privado):**
-
-```bash
-./scripts/install-jetson-offline.sh TU_USUARIO_GITHUB TU_TOKEN
-```
+**Opción B — tarball mínimo (repo privado):** script archivado en `_archive/scripts/legacy/install-jetson-offline.sh`.
 
 ### 3. Configuración automática (venv + Piper aarch64 + .env)
 
 ```bash
 cd /opt/robita-lab
-./scripts/setup-jetson-offline.sh
+./scripts/setup/jetson.sh
 ```
 
 Esto:
 
-- Crea `.venv` e instala dependencias (`setup-venv.sh`)
+- Crea `.venv` e instala dependencias (`setup/venv.sh`)
 - Sustituye el binario **Piper x86_64** por **piper_linux_aarch64** si hace falta
 - Copia `.env.example` → `.env` con `ROBITA_RAG_CONFIG` para Jetson
 
@@ -87,22 +83,20 @@ Los binarios y voces en `01_SERVICES/tts-engine/piper/` del repo son **para Jets
 ```bash
 cd /opt/robita-lab
 source .venv/bin/activate
-./scripts/download-offline-models.sh
+./scripts/setup/models-download.sh
 ```
 
 Descarga a `data/huggingface/` (Whisper, embeddings, TinyLlama). La primera ejecución de UDITO puede tardar varios minutos mientras indexa `Horarios_UDIT.txt`.
 
-### 5. Copiar modelos desde el servidor del laboratorio (sin re-descargar)
+### 5. Copiar modelos desde otro equipo (opcional)
 
-Si el servidor ya tiene todo en caché, desde la Jetson (sustituye `IP_SERVIDOR` y usuario):
+Si otro PC/Jetson ya tiene `data/huggingface/`:
 
 ```bash
-export ROBITA_SERVER_HOST=192.168.x.x
-export ROBITA_SERVER_USER=udito
-./scripts/sync-models-from-server.sh
+rsync -avz usuario@IP:/opt/robita-lab/data/huggingface/ /opt/robita-lab/data/huggingface/
 ```
 
-Vuelve a ejecutar `./scripts/download-offline-models.sh` solo si faltan archivos.
+Vuelve a ejecutar `./scripts/setup/models-download.sh` solo si faltan archivos.
 
 ### 6. Wakeword (openWakeWord — por defecto en Jetson)
 
@@ -112,17 +106,34 @@ En **esta Jetson** el motor por defecto es **[openWakeWord](https://github.com/d
 |---|---------------------------|---------|
 | Motor | **openWakeWord** + ONNX | **TFLite** (`micro_model.tflite`) |
 | Modelo «udito» | `01_SERVICES/wakeword-engine/models/udito.onnx` | Export `.tflite` (legado) |
-| Setup | `./scripts/setup-wakeword-oww.sh` | No usar `setup-wakeword-oww.sh` sin adaptar código |
+| Setup | `./scripts/setup/wakeword.sh` | No usar `setup/wakeword.sh` sin adaptar código |
 
 **Windows:** openWakeWord **no** es el camino soportado en el pipeline Windows del laboratorio; allí se usa **TensorFlow Lite**. Detalle: [01_SERVICES/wakeword-engine/README.md](01_SERVICES/wakeword-engine/README.md).
 
 ```bash
 # Copia tu modelo entrenado con openWakeWord:
 cp /ruta/udito.onnx /opt/robita-lab/01_SERVICES/wakeword-engine/models/udito.onnx
-./scripts/setup-wakeword-oww.sh
+./scripts/setup/wakeword.sh
 ```
 
-`.env`: `ROBITA_WAKEWORD_BACKEND=openwakeword` (opcional; es el comportamiento por defecto en `udito_standalone.py`).
+`.env`: `ROBITA_WAKEWORD_BACKEND=openwakeword` (opcional; el motor único es OpenWakeWord + `engine.py`).
+
+**Sincronizar desde el PC de desarrollo:**
+
+```bash
+./scripts/dev/sync-jetson.sh
+# ROBITA_JETSON_HOST=10.8.0.16  ROBITA_JETSON_USER=udito  (por defecto)
+```
+
+**Probar wakeword + ROS2 en la Jetson:**
+
+```bash
+# Terminal 1
+./scripts/ros2/listener-wakeword.sh
+
+# Terminal 2
+./UDITO
+```
 
 ### 7. Audio
 
@@ -138,7 +149,7 @@ nano /opt/robita-lab/.env
 Prueba TTS sin wakeword:
 
 ```bash
-./scripts/test-audio-standalone.sh
+./scripts/udito/audio-test.sh
 ```
 
 ### 8. Arrancar UDITO offline
@@ -147,28 +158,16 @@ Prueba TTS sin wakeword:
 
 ```bash
 cd /opt/robita-lab
-./scripts/Principal-UDITO.sh
+./scripts/udito/start.sh
 # atajo en la raíz del repo:
 ./UDITO
 ```
 
-Internamente ejecuta `udito_standalone.py` vía `udito_standalone.sh` (no hace falta invocarlo directamente).
+Internamente ejecuta `udito_standalone.py` vía `scripts/udito/run-standalone.sh`.
 
-Antes de arrancar, `prepare-pipeline.sh` (automático) detiene Docker/contenedores, puertos 8000–8004, ollama si estaba activo, y libera RAM.
+Antes de arrancar, `lib/prepare-pipeline.sh` (automático) libera RAM y detiene procesos viejos en puertos 8000–8004.
 
-Desactivar preparación: `ROBITA_SKIP_PREPARE=1 ./scripts/Principal-UDITO.sh`
-
-`start-udito-visible.sh` redirige al mismo script (compatibilidad).
-
-**Solo si necesitas cerebro remoto** (servidor encendido): `./scripts/udito-run.sh` → modo online.
-
-**Menú de pruebas por componente:**
-
-```bash
-./scripts/Menu_Udito.sh
-```
-
-Opción 1 = `Principal-UDITO.sh`. Opciones 2–6 = pruebas parciales.
+Desactivar preparación: `ROBITA_SKIP_PREPARE=1 ./UDITO`
 
 Flujo: di **«udito»** → saludo → pregunta → respuesta hablada.
 
@@ -226,18 +225,18 @@ y reinicia standalone (reindexará RAG).
 
 Variables en `.env`: `ROBITA_LOW_MEMORY=1`, `ROBITA_RELEASE_MODELS=1`.
 
-**No ejecutes** en la Jetson a la vez: `download-offline-models.sh` (descarga TinyLlama) + pipeline + Docker. Arranca con **`Principal-UDITO.sh`** o **`Menu_Udito.sh` → opción 1**.
+**No ejecutes** en la Jetson a la vez: `setup/models-download.sh` (descarga TinyLlama) + pipeline + Docker. Arranca con **`scripts/udito/start.sh`** o **`./UDITO` → opción 1**.
 
-**No uses** `udito.sh` ni `ROBITA_SERVER_URL` si el servidor no está disponible. El modo correcto en esta Jetson es siempre **offline** → **`Principal-UDITO.sh`** (o `./UDITO`).
+**No uses** modo online en esta Jetson hasta recuperarlo desde `_archive/modo-online/`. Aquí solo **`./UDITO`** (offline).
 
 | Síntoma | Acción |
 |---------|--------|
 | Reinicios al abrir UDITO | Confirma `ROBITA_RAG_CONFIG=.../rag_config.jetson.json` y `backend: none` |
-| `cannot execute binary file` al hablar | Piper era x86: `./scripts/install-piper-aarch64.sh` |
-| `No module named faster_whisper` | `./scripts/setup-venv.sh` |
+| `cannot execute binary file` al hablar | Piper era x86: `./scripts/setup/piper-jetson.sh` |
+| `No module named faster_whisper` | `./scripts/setup/venv.sh` |
 | Sin respuesta RAG / muy lento | Comprueba `data/huggingface`; copia desde servidor |
-| No oye el altavoz | `./scripts/test-audio-standalone.sh`, `alsamixer` |
-| Wakeword no dispara | `models/udito.onnx` presente; `./scripts/setup-wakeword-oww.sh`; ver [wakeword-engine/README.md](01_SERVICES/wakeword-engine/README.md) |
+| No oye el altavoz | `./scripts/udito/audio-test.sh`, `alsamixer` |
+| Wakeword no dispara | `models/udito.onnx` presente; `./scripts/setup/wakeword.sh`; ver [wakeword-engine/README.md](01_SERVICES/wakeword-engine/README.md) |
 
 Logs: salida en consola con `ROBITA_VERBOSE=1`.
 
@@ -245,6 +244,6 @@ Logs: salida en consola con `ROBITA_VERBOSE=1`.
 
 ## Relación con el resto del monorepo
 
-- **No modifica** el flujo servidor (`launch.sh`, `docker-compose.yml`).
-- `install_in_jetson.sh` antiguo levantaba Docker (cerebro); usar **`install-jetson-offline.sh`** o esta guía.
-- Subir cambios: ver sección «Git» en `README.md`.
+- Modo servidor / Docker: [`_archive/modo-online/`](_archive/modo-online/README.md)
+- Rama **`develop-base`**: conserva historial + archivo; sincronizar con merge desde `develop`
+- Subir cambios: ver `README.md`

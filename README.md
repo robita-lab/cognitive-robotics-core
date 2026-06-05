@@ -1,131 +1,74 @@
 # ROBITA-LAB — Cognitive Robotics Core
 
-Plataforma del laboratorio **Robita-Lab** (UDIT) para agentes cognitivos en robótica social: RAG, voz local, wakeword y adaptadores hardware.
+Plataforma **Robita-Lab** (UDIT): robot de voz **UDITO** offline en Jetson (wakeword + STT + RAG + TTS local).
 
 **Repositorio:** [github.com/robita-lab/cognitive-robotics-core](https://github.com/robita-lab/cognitive-robotics-core)
 
-**Ruta habitual en Jetson/servidor:** `/opt/robita-lab`
+**Ruta en Jetson:** `/opt/robita-lab`
 
 ---
 
-## Ramas del repositorio
+## Ramas
 
-| Rama | Para qué sirve |
-|------|----------------|
-| **`develop`** | **Rama de trabajo** — UDITO offline en Jetson, `Principal-UDITO.sh`, ROS2, pantalla sim, conocimiento en `knowledge-text/`. |
-| **`main`** | Releases / servidor histórico (Docker, cerebro remoto). |
+| Rama | Para qué |
+|------|----------|
+| **`develop`** | **Trabajo activo** — solo Jetson **offline** |
+| **`develop-base`** | Referencia + `_archive/` (modo servidor conservado) |
+| **`main`** | Releases antiguos |
 
-**Clonar para Jetson / UDITO físico:**
-
-```bash
-git clone -b develop https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
-cd /opt/robita-lab
-```
-
-```bash
-cd /opt/robita-lab
-git fetch origin
-git checkout develop
-git pull origin develop
-```
+Modo online / Docker archivado: [`_archive/modo-online/`](_archive/modo-online/README.md)
 
 ---
 
-## Producto UDITO (robot de voz)
-
-Asistente por voz tipo Alexa/Siri para el autómata **UDITO**: «udito» → «¿Dime?» → pregunta → respuesta hablada.
-
-| Uso | Comando |
-|-----|---------|
-| **Arrancar UDITO (Jetson)** | `./UDITO` o `./scripts/Principal-UDITO.sh` |
-| Pantalla ojos (opcional) | `./scripts/udito-face-sim.sh` |
-| Configurar mic/altavoz | `./scripts/find-speaker.sh` |
-
-Menú de pruebas, modo online, servidor Docker: ver tabla en [PROJECT_LAYOUT.md](PROJECT_LAYOUT.md). No hace falta invocar `udito_standalone.sh` ni otros `.sh` sueltos.
-
-Guía Jetson offline: [DEPLOY_JETSON_OFFLINE.md](DEPLOY_JETSON_OFFLINE.md) · ROS2: [05_ROS2/README.md](05_ROS2/README.md)
-
----
-
-## Inicio rápido (Jetson — rama `develop`)
-
-```bash
-cd /opt/robita-lab
-cp .env.example .env          # editar audio (respeaker, pulse, etc.)
-./scripts/setup-jetson-offline.sh
-./scripts/download-offline-models.sh   # primera vez con internet (~2.7 GB en data/huggingface)
-./scripts/Principal-UDITO.sh         # o: ./UDITO — di «udito»
-```
-
-**Consola:** `ROBITA_VERBOSE=0` (limpio) o `1` (log Hugging Face, RAG, etc.) en `.env`.
-
-**Audio:** `./scripts/find-speaker.sh` — menú para micrófono y altavoz.
-
-**Piper TTS:** los binarios en `01_SERVICES/tts-engine/piper/` son para **Jetson (aarch64)** — [piper/README.md](01_SERVICES/tts-engine/piper/README.md).
-
----
-
-## Inicio rápido (servidor con Docker)
+## UDITO — arranque
 
 ```bash
 cd /opt/robita-lab
 cp .env.example .env
-./scripts/setup-venv.sh
-./scripts/launch.sh
+./scripts/setup/jetson.sh              # una vez
+./scripts/setup/models-download.sh     # una vez (~2.7 GB)
+./UDITO                                # di «udito»
 ```
+
+| Comando | Uso |
+|---------|-----|
+| **`./UDITO`** | Robot offline (principal) |
+| `./scripts/udito/audio-config.sh` | Micrófono y altavoz |
+| `./scripts/udito/face-sim.sh` | Cara (2ª terminal) |
+| `./scripts/ros2/listener-wakeword.sh` | ROS2 (2ª terminal) |
+
+Guía completa: [DEPLOY_JETSON_OFFLINE.md](DEPLOY_JETSON_OFFLINE.md) · ROS2: [05_ROS2/README.md](05_ROS2/README.md) · Scripts: [scripts/README.md](scripts/README.md)
 
 ---
 
-## Arquitectura
+## Arquitectura (offline)
 
 | Carpeta | Contenido |
 |---------|-----------|
-| `01_SERVICES/` | STT (Whisper), TTS (Piper), wakeword, RAG, orquestador |
-| `02_AGENTS_FACTORY/` | Perfil `udit-robot-brain` |
-| `03_ADAPTERS/robot-udit-physical/` | `udito_standalone.py`, `robot_common.py`, `log_config.py` |
-| `04_KNOWLEDGE_CORE/` | Textos fijos + PDFs RAG — ver [04_KNOWLEDGE_CORE/README.md](04_KNOWLEDGE_CORE/README.md) |
+| `01_SERVICES/` | wakeword, STT, TTS, RAG |
+| `03_ADAPTERS/robot-udit-physical/` | `udito_standalone.py`, bucle wakeword |
+| `04_KNOWLEDGE_CORE/` | Saludos, Q&A, PDFs |
+| `05_ROS2/` | Topics `/udito/wakeword`, `/udito/speech_out` |
+| `scripts/` | Arranque e instalación |
 
-Estructura detallada: [PROJECT_LAYOUT.md](PROJECT_LAYOUT.md)
+Detalle: [PROJECT_LAYOUT.md](PROJECT_LAYOUT.md)
 
 ---
 
-## Variables de entorno
-
-Copiar `.env.example` → `.env`. Las más usadas en Jetson:
+## Variables `.env` (Jetson)
 
 | Variable | Uso |
 |----------|-----|
 | `ROBITA_AUDIO_INPUT` | `respeaker` o índice ALSA |
 | `ROBITA_AUDIO_OUTPUT` | `pulse`, `hdmi`, `platform` |
-| `ROBITA_VERBOSE` | `0` consola limpia, `1` log completo |
-| `ROBITA_RELEASE_MODELS` | `0` = Whisper en RAM (más rápido) |
-| `ROBITA_RAG_REBUILD` | `1` una vez tras añadir PDFs |
-| `HF_HOME` | Caché modelos (`data/huggingface`, no en git) |
-| `WHISPER_MODEL` | `tiny` en 8 GB; `small` si hay RAM |
+| `ROBITA_VERBOSE` | `0` limpio, `1` log completo |
+| `ROBITA_RAG_CONFIG` | `rag_config.jetson.json` |
+| `HF_HOME` | `data/huggingface` |
 
 ---
 
-## Subir cambios a GitHub
+## Git
 
-Rama de trabajo: **`develop`**.
+Trabajar en **`develop`**. Push manual o script archivado en `_archive/modo-online/scripts/dev/push-github.sh`.
 
-```bash
-cd /opt/robita-lab
-git checkout develop
-GITHUB_TOKEN=ghp_xxx ./scripts/push-github.sh "feat: descripción del cambio"
-```
-
-(`push-github.sh` sube a `develop` por defecto; override: `ROBITA_GIT_BRANCH=otra`.)
-
-El commit debe figurar con tu usuario Git (`git config user.name` / `user.email` en este repo).
-
-No commitear: `.env`, `.venv/`, `data/huggingface/`, cachés RAG.
-
----
-
-## Filosofía
-
-1. Trabajar en rama **`develop`** (o `feature/…` derivada) para el robot físico UDITO.
-2. Validar en hardware real (ReSpeaker + Jetson Orin) con **`./scripts/Principal-UDITO.sh`**.
-3. Push a [cognitive-robotics-core](https://github.com/robita-lab/cognitive-robotics-core) en `develop`.
-4. Otras Jetsons: `git pull origin develop` + `./scripts/setup-jetson-offline.sh` si hace falta.
+No commitear: `.env`, `.venv/`, `data/huggingface/`, modelos wakeword entrenados.

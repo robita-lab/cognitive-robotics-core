@@ -30,8 +30,8 @@ Textos hablados y documentos para el asistente. El código carga todo vía `load
 | **Cara / expresión** (sin RAG) | `face_commands.json` — «sonríe», «guiña», «cara triste», etc. |
 | Normativa, trámites, PDFs | RAG sobre `raw-docs/*.pdf` |
 
-Tras cambiar PDFs en `raw-docs/`, reindexar: `ROBITA_RAG_REBUILD=1` en `.env` y reiniciar UDITO (`./scripts/Principal-UDITO.sh`).
+Tras cambiar PDFs en `raw-docs/`, reindexar: `ROBITA_RAG_REBUILD=1` en `.env` y reiniciar UDITO (`./scripts/udito/start.sh`).
 
 Tras editar `knowledge-text/` o `responses/`, basta reiniciar el pipeline (no hace falta reindexar).
 
-Arranque Jetson offline: [DEPLOY_JETSON_OFFLINE.md](../DEPLOY_JETSON_OFFLINE.md) · comando principal: `./scripts/Principal-UDITO.sh` o `./UDITO`.
+Arranque Jetson offline: [DEPLOY_JETSON_OFFLINE.md](../DEPLOY_JETSON_OFFLINE.md) · comando principal: `./scripts/udito/start.sh` o `./UDITO`.
