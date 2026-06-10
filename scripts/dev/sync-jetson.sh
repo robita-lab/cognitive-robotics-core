@@ -69,8 +69,8 @@ if [[ -f "$ROOT/.env.example" ]]; then
 fi
 
 echo ""
-echo "==> Setup remoto (venv + openWakeWord)…"
-ssh "$SSH" "cd '$DEST' && find scripts -name '*.sh' -exec chmod +x {} + && chmod +x UDITO && ./scripts/setup/wakeword.sh"
+echo "==> Setup remoto (wakeword + onnxruntime-gpu Jetson)…"
+ssh "$SSH" "cd '$DEST' && find scripts -name '*.sh' -exec chmod +x {} + && chmod +x UDITO && ./scripts/setup/wakeword.sh && ./scripts/setup/install_onnx_jetson.sh"
 
 echo ""
 echo "==> Comprobar ROS2 en Jetson…"

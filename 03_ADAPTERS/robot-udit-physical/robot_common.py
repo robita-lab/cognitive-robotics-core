@@ -492,6 +492,43 @@ def play_wav_file(path: str, *, playback_guard_sec: float | None = None) -> bool
     return ok
 
 
+def play_listen_beep(sample_rate: int = 16000) -> None:
+    """Dos tonos cortos por el altavoz — señal de «te escucho» (sin TTS)."""
+    sr = int(sample_rate)
+    parts: list[np.ndarray] = []
+    for freq, dur in ((784, 0.06), (988, 0.08)):
+        n = max(int(sr * dur), 1)
+        t = np.arange(n, dtype=np.float32) / float(sr)
+        ramp = np.minimum(1.0, np.minimum(t / 0.008, (dur - t) / 0.015))
+        parts.append((0.22 * np.sin(2 * np.pi * freq * t) * ramp).astype(np.float32))
+    tone = np.concatenate(parts) if parts else np.zeros(1, dtype=np.float32)
+    pcm = (np.clip(tone, -1.0, 1.0) * 32767.0).astype(np.int16)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        path = tmp.name
+    try:
+        with wave.open(path, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sr)
+            wf.writeframes(pcm.tobytes())
+        play_wav_file(path, playback_guard_sec=0.25)
+    except OSError as exc:
+        log.debug("listen beep: %s", exc)
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+def announce_session_listening() -> None:
+    """Mensaje muy visible en terminal cuando empieza la escucha."""
+    user_progress("")
+    user_progress("═" * 46)
+    user_progress("  ▶ TE ESCUCHO — habla ahora")
+    user_progress("═" * 46)
+
+
 def play_wav_bytes(data: bytes) -> None:
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmp.write(data)
@@ -537,6 +574,14 @@ class AudioPreRoll:
         return self._buf.copy()
 
 
+def _mic_level_bar(rms: float, thresh: float, width: int = 14) -> str:
+    if thresh <= 0:
+        level = 0
+    else:
+        level = min(width, int(rms / thresh * width))
+    return "█" * level + "░" * (width - level)
+
+
 def record_question_vad(
     audio_q: queue.Queue,
     noise_floor: float,
@@ -548,18 +593,22 @@ def record_question_vad(
     speaker_lock: Optional["SpeakerLock"] = None,
     *,
     wait_playback: bool = False,
+    on_partial_audio: Callable[[np.ndarray, float], None] | None = None,
 ) -> np.ndarray:
     if wait_playback:
         wait_for_playback_idle()
         drain_queue(audio_q, 0.12)
 
-    speech_thresh = max(threshold_voice * 1.8, noise_floor * cfg["speech_margin"])
+    vad_factor = float(cfg.get("vad_energy_factor", 1.8))
+    speech_thresh = max(threshold_voice * vad_factor, noise_floor * cfg["speech_margin"])
     silence_thresh = max(noise_floor * 2.5, speech_thresh * 0.4)
     max_sec = float(cfg["max_record_sec"])
     min_speech_chunks = max(1, int(cfg["min_speech_sec"] / CHUNK_SEC))
     silence_chunks_needed = max(1, int(cfg["silence_after_speech_sec"] / CHUNK_SEC))
     min_record_speech_sec = float(cfg.get("min_record_speech_sec", 1.1))
     onset_timeout = float(cfg.get("listen_onset_timeout_sec", 5.0))
+    mic_feedback = bool(cfg.get("mic_level_feedback", True))
+    partial_interval = float(cfg.get("stt_live_preview_interval_sec", 1.5))
     parts: list[np.ndarray] = []
     if pre_roll is not None and pre_roll.size > 0:
         parts.append(pre_roll.astype(np.float32))
@@ -567,26 +616,45 @@ def record_question_vad(
     speech_chunks = 0
     silence_chunks = 0
     speech_started_at = 0.0
-    progress("[graba] …")
-    # Esperar a que el usuario empiece (no grabar eco de «¿Dime?»)
+    last_ui = 0.0
+    last_partial_at = 0.0
+    peak_rms = 0.0
+    user_progress("[mic] esperando tu voz…")
+    # Esperar a que el usuario empiece a hablar
     onset_deadline = time.time() + onset_timeout
     while time.time() < onset_deadline and not speech_started:
         try:
             data = audio_q.get(timeout=0.2)
         except queue.Empty:
+            if mic_feedback and time.time() - last_ui >= 0.4:
+                user_progress("[mic] escuchando… (habla ahora)", end="\r")
+                last_ui = time.time()
             continue
         for start in range(0, len(data.reshape(-1)), chunk_samples):
             chunk = data.reshape(-1)[start : start + chunk_samples]
             if chunk.size < chunk_samples // 2:
                 continue
-            if block_rms(chunk) >= speech_thresh:
+            r = block_rms(chunk)
+            peak_rms = max(peak_rms, r)
+            if mic_feedback and time.time() - last_ui >= 0.12:
+                user_progress(
+                    f"[mic] {_mic_level_bar(r, speech_thresh)}  "
+                    f"({r:.4f} / {speech_thresh:.4f})",
+                    end="\r",
+                )
+                last_ui = time.time()
+            if r >= speech_thresh:
                 speech_started = True
                 speech_started_at = time.time()
                 parts.append(chunk.astype(np.float32))
                 speech_chunks = 1
+                user_progress("[mic] ● voz detectada — grabando…")
                 break
     if not speech_started:
-        progress("   (sin voz — di la pregunta tras «¿Dime?»)          ")
+        user_progress(
+            f"[mic] sin voz en {onset_timeout:.0f}s "
+            f"(pico={peak_rms:.4f}, umbral={speech_thresh:.4f})"
+        )
         return np.array([], dtype=np.float32)
 
     deadline = time.time() + max_sec
@@ -594,9 +662,18 @@ def record_question_vad(
     last_tick = started_at
     while time.time() < deadline:
         now = time.time()
-        if verbose_progress() and now - last_tick >= 1.0:
-            progress(f"   … grabando ({now - started_at:.0f}s / {max_sec:.0f}s)", end="\r")
+        rec_sec = now - speech_started_at
+        if mic_feedback and now - last_tick >= 0.15:
+            user_progress(f"[mic] ● grabando {rec_sec:.1f}s", end="\r")
             last_tick = now
+        if (
+            on_partial_audio
+            and parts
+            and rec_sec >= partial_interval
+            and (now - last_partial_at) >= partial_interval
+        ):
+            on_partial_audio(np.concatenate(parts), rec_sec)
+            last_partial_at = now
         try:
             data = audio_q.get(timeout=0.25)
         except queue.Empty:
@@ -623,7 +700,7 @@ def record_question_vad(
                     and speech_chunks >= min_speech_chunks
                     and silence_chunks >= silence_chunks_needed
                 ):
-                    progress(f"   audio OK ({speech_chunks} tramos)          ")
+                    user_progress(f"[mic] fin ({rec_sec:.1f}s, {speech_chunks} tramos)")
                     break
         else:
             continue
@@ -880,20 +957,40 @@ def run_voice_assistant(
                     else:
                         speaker_lock = None
 
-                drain_queue(audio_q, 0.2)
+                drain_queue(audio_q, 0.12)
 
-                user_progress("[saludo] TTS local (Piper)…")
-                greet()
-                wait_for_playback_idle()
-                drain_queue(audio_q, float(cfg.get("post_greet_drain_sec", 0.15)))
-
-                user_progress("[sesión] escuchando…")
                 try:
                     from ros2_bridge import publish_state
 
                     publish_state("session_listening")
                 except ImportError:
                     pass
+                try:
+                    from udito_speech import publish_face_cue
+
+                    publish_face_cue("listening", "te escucho — habla", source="session")
+                except ImportError:
+                    pass
+
+                announce_session_listening()
+                user_progress("[sesión] wakeword pausado — solo micrófono + STT")
+                buffer = np.zeros(0, dtype=np.float32)
+                cue = str(cfg.get("listen_cue", "beep")).strip().lower()
+                if cfg.get("post_wake_greeting", False):
+                    user_progress("[saludo] TTS local (Piper)…")
+                    greet()
+                    wait_for_playback_idle()
+                    drain_queue(audio_q, float(cfg.get("post_greet_drain_sec", 0.1)))
+                elif cue == "beep":
+                    play_listen_beep(sample_rate)
+                    drain_queue(audio_q, 0.08)
+                elif cue == "tts_short":
+                    user_progress("[escucha] Te escucho.")
+                    greet()
+                    wait_for_playback_idle()
+                    drain_queue(audio_q, 0.08)
+                else:
+                    drain_queue(audio_q, 0.06)
                 try:
                     # Sin pre_roll: evita que Whisper transcriba el eco del saludo TTS
                     on_session(audio_q, speaker_lock, None)

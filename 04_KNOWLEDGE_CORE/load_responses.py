@@ -402,6 +402,41 @@ def load_face_commands(force: bool = False) -> list[dict[str, Any]]:
     return _face_commands
 
 
+FACE_DEMO_KEYWORDS = (
+    "muestrame expresiones",
+    "muestra expresiones",
+    "muestra las expresiones",
+    "muestrame las expresiones",
+    "haz un ciclo de expresiones",
+    "ciclo de expresiones",
+    "demo de expresiones",
+    "ensename expresiones",
+    "enseñame expresiones",
+    "ensename las expresiones",
+    "enseñame las expresiones",
+)
+
+FACE_DEMO_SEQUENCE: tuple[tuple[str, str], ...] = (
+    ("happy", "Sonrío."),
+    ("wink", "Guiño un ojo."),
+    ("surprised", "¡Sorpresa!"),
+    ("laugh", "Jaja."),
+    ("tongue", "Lengua fuera."),
+    ("idle", "Listo."),
+)
+
+
+def match_face_demo_cycle(text: str) -> list[tuple[str, str]] | None:
+    """Comando «muéstrame expresiones» → secuencia sincronizada en pantalla."""
+    t = _norm(text)
+    if not t:
+        return None
+    for phrase in FACE_DEMO_KEYWORDS:
+        if _norm(phrase) in t:
+            return list(FACE_DEMO_SEQUENCE)
+    return None
+
+
 def match_face_command(text: str) -> tuple[str, str] | None:
     """Comando directo a la pantalla (sin RAG). Coincidencia exacta por keywords."""
     t = _norm(text)

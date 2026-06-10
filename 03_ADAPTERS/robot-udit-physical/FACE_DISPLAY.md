@@ -35,14 +35,18 @@ En la Jetson con monitor:
 ```bash
 cd /opt/robita-lab
 
-# Terminal 1 — cara + wakeword (ROS2)
+# Terminal 1 — cara + wakeword + emociones TTS (ROS2 + JSON)
 ./scripts/ros2/listener-wakeword.sh
 
 # Terminal 2 — pipeline
 ./UDITO
 ```
 
-Cuando UDITO hable, la ventana cambia de emoción (`happy`, `thinking`, `sorry`, `laugh`, …).
+La ventana sigue wakeword (`/tmp/udito_wakeword.json`) **y** emociones del pipeline (`/tmp/udito_speech_out.json`).
+
+### Comando «muéstrame expresiones»
+
+Tras «udito», di: **«muéstrame expresiones»** → ciclo sincronizado: sonrisa, guiño, sorpresa, risa, lengua, reposo (~1,1 s cada una).
 
 ### Probar sin pipeline
 

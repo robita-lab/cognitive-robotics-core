@@ -3,9 +3,12 @@
 ## Arquitectura
 
 ```
-config/wakeword.json   ← toda la configuración (modelo, audio, umbrales)
-engine.py              ← clase WakeWordEngine (lee JSON, inferencia)
-Detector_wakeword.py   ← entrada del robot (reexporta engine)
+config/wakeword.json      ← producción Jetson (wake_provider: cuda)
+config/wakeword.pc.json   ← desarrollo PC (wake_provider: cpu)
+config/README.md          ← cuándo usar cada uno
+wake.py                   ← motor OpenWakeWord + CUDA + debug
+engine.py                 ← compatibilidad (reexporta wake.py)
+Detector_wakeword.py      ← entrada del robot (reexporta engine)
 models/
   udito.onnx           ← modelo entrenado (no en git; copiar manualmente)
   openwakeword/        ← melspectrogram.onnx + embedding_model.onnx (auto-descarga)
@@ -79,13 +82,23 @@ from engine import load; load(); print('OK')
 "
 ```
 
+## ONNX Runtime — Jetson vs PC
+
+| Plataforma | Script | Config |
+|------------|--------|--------|
+| Jetson aarch64 | `./scripts/setup/install_onnx_jetson.sh` | `config/wakeword.json` |
+| PC x86_64 | `./scripts/setup/install_onnx_pc.sh` | `config/wakeword.pc.json` + `ROBITA_WAKEWORD_CONFIG` |
+
+Diagnóstico: `python 01_SERVICES/wakeword-engine/check_env.py`  
+Calibrar threshold (solo monitor, sin UDITO): `python wake.py` con `wake_debug_mode: true`.
+
 ## Dependencias
 
-Ver `requirements.txt`. En PC (Python 3.12, solo ONNX):
+Ver `requirements.txt`. En PC:
 
 ```bash
-pip install onnxruntime 'numpy<2.1'
-pip install --no-deps 'openwakeword>=0.6.0'
+./scripts/setup/install_onnx_pc.sh
+export ROBITA_WAKEWORD_CONFIG=config/wakeword.pc.json
 ```
 
-`vad_threshold` en JSON debe ser `0` (VAD lo hace el robot en `session.json`). Si subes el umbral OWW, copia `silero_vad.onnx` a `openwakeword/resources/models/` o usa `./scripts/setup/wakeword.sh`.
+`vad_threshold` en JSON debe ser `0` (VAD lo hace el robot en `session.json`).

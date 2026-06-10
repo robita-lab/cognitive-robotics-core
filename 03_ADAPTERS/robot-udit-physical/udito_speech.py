@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 import wave
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -326,6 +327,50 @@ def publish_speech_event(event: SpeechEvent) -> None:
 
 _ROS_NODE = None
 _ROS_PUB = None
+
+
+def publish_face_cue(
+    emotion: str,
+    label: str = "",
+    *,
+    source: str = "pipeline",
+) -> None:
+    """Actualiza pantalla/ROS2 sin TTS (escuchando, transcribiendo, etc.)."""
+    publish_speech_event(
+        SpeechEvent(
+            text=label,
+            emotion=emotion,
+            source=source,
+            label=emotion,
+        )
+    )
+
+
+def run_face_expression_cycle(
+    steps: list[tuple[str, str]],
+    *,
+    step_sec: float = 1.15,
+    intro: str = "Mira las expresiones.",
+    tts=None,
+    play_fn: Callable[[bytes], None] | None = None,
+    progress_fn: Callable[[str], None] | None = None,
+) -> None:
+    """Ciclo sincronizado de expresiones en pantalla (y ROS2 / JSON)."""
+    if progress_fn:
+        progress_fn(f"[cara demo] {len(steps)} expresiones")
+    if intro and tts is not None and play_fn is not None:
+        wav, event = synthesize_with_pauses(tts, intro, "helpful")
+        event.source = "face_demo"
+        event.label = "intro"
+        publish_speech_event(event)
+        if wav:
+            play_fn(wav)
+    pause = max(0.35, float(step_sec))
+    for expr, caption in steps:
+        publish_face_cue(expr, caption, source="face_demo")
+        if progress_fn:
+            progress_fn(f"[cara demo] {expr}")
+        time.sleep(pause)
 
 
 def show_face_expression(

@@ -17,10 +17,22 @@ Modo servidor / online archivado en [`../_archive/modo-online/`](../_archive/mod
 
 ## Instalación (una vez)
 
+**Solo en Jetson:**
+
 ```bash
-./scripts/setup/jetson.sh
+./scripts/setup/jetson.sh              # incluye install_onnx_jetson.sh
 ./scripts/setup/models-download.sh
 ```
+
+**Solo en PC de desarrollo (x86_64):**
+
+```bash
+./scripts/setup/venv.sh
+./scripts/setup/install_onnx_pc.sh       # NO usar install_onnx_jetson.sh en PC
+export ROBITA_WAKEWORD_CONFIG=config/wakeword.pc.json
+```
+
+Ver `01_SERVICES/wakeword-engine/config/README.md` (Jetson vs PC).
 
 ## Desarrollo PC → Jetson
 

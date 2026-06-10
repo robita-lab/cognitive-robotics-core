@@ -470,7 +470,9 @@ def _load_json_dict(path: Path) -> dict[str, Any] | None:
         return None
 
 
-class _WakewordRosBridge:
+class _FaceRosBridge:
+    """ROS2: wakeword + estado + emociones del pipeline (/udito/speech_out)."""
+
     def __init__(self, on_face: Callable[[FaceState], None]) -> None:
         import rclpy
         from rclpy.node import Node
@@ -480,16 +482,19 @@ class _WakewordRosBridge:
 
         class _Node(Node):
             def __init__(self) -> None:
-                super().__init__("udito_wakeword_face")
-                self.create_subscription(String, "/udito/wakeword", self._on_ww, 10)
-                self.create_subscription(String, "/udito/state", self._on_st, 10)
-                self.get_logger().info("Cara + ROS2 — /udito/wakeword, /udito/state")
+                super().__init__("udito_face_bridge")
+                self.create_subscription(String, "/udito/wakeword", self._on_raw, 10)
+                self.create_subscription(String, "/udito/state", self._on_raw, 10)
+                self.create_subscription(String, "/udito/speech_out", self._on_speech, 10)
+                self.get_logger().info(
+                    "Cara + ROS2 — /udito/wakeword, /udito/state, /udito/speech_out"
+                )
 
-            def _on_ww(self, msg: String) -> None:
-                outer._on_msg(msg.data)
+            def _on_raw(self, msg: String) -> None:
+                outer._on_wakeword_msg(msg.data)
 
-            def _on_st(self, msg: String) -> None:
-                outer._on_msg(msg.data)
+            def _on_speech(self, msg: String) -> None:
+                outer._on_speech_msg(msg.data)
 
         self._rclpy = rclpy
         self._on_face = on_face
@@ -498,13 +503,22 @@ class _WakewordRosBridge:
         self._node = _Node()
         threading.Thread(target=rclpy.spin, args=(self._node,), daemon=True).start()
 
-    def _on_msg(self, raw: str) -> None:
+    def _on_wakeword_msg(self, raw: str) -> None:
         try:
             data = json.loads(raw)
         except json.JSONDecodeError:
             return
         st = face_from_wakeword_json(data)
         if st:
+            self._on_face(st)
+
+    def _on_speech_msg(self, raw: str) -> None:
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            return
+        st = FaceState.from_speech_json(data)
+        if st.emotion:
             self._on_face(st)
 
     def shutdown(self) -> None:
@@ -516,26 +530,31 @@ class _WakewordRosBridge:
 
 def run_wakeword_face_loop(
     event_file: str | None = None,
-    poll_hz: float = 15.0,
+    poll_hz: float = 20.0,
 ) -> int:
-    """T1 prueba wakeword: cara + /tmp/udito_wakeword.json (+ ROS2 si hay rclpy)."""
-    path = Path(event_file or os.getenv("ROBITA_WAKEWORD_EVENT_FILE", "/tmp/udito_wakeword.json"))
-    display = PygameFaceSim(title="UDITO — wakeword")
+    """Cara unificada: wakeword + emociones TTS (JSON + ROS2). Terminal 2: ./UDITO"""
+    wake_path = Path(event_file or os.getenv("ROBITA_WAKEWORD_EVENT_FILE", "/tmp/udito_wakeword.json"))
+    speech_path = Path(
+        os.getenv("ROBITA_SPEECH_EVENT_FILE", "/tmp/udito_speech_out.json")
+    )
+    display = PygameFaceSim(title="UDITO — cara")
     display.set_state(FaceState(emotion="idle", label="esperando «udito»", source="init"))
 
     def apply(st: FaceState) -> None:
         display.set_state(st)
 
-    ros: _WakewordRosBridge | None = None
+    ros: _FaceRosBridge | None = None
     try:
-        ros = _WakewordRosBridge(apply)
-        print("ROS2: /udito/wakeword, /udito/state")
+        ros = _FaceRosBridge(apply)
+        print("ROS2: /udito/wakeword, /udito/state, /udito/speech_out")
     except Exception as exc:
-        print(f"ROS2 no disponible ({exc}) — solo {path}")
+        print(f"ROS2 no disponible ({exc}) — solo archivos JSON")
 
-    print(f"Cara wakeword: {path} | T2: ./UDITO | Esc: salir")
+    print(f"Cara: {wake_path} + {speech_path}")
+    print("T2: ./UDITO | Esc: salir")
 
-    last_mtime = 0.0
+    wake_mtime = 0.0
+    speech_mtime = 0.0
     poll_interval = 1.0 / poll_hz
     last_poll = 0.0
 
@@ -544,15 +563,22 @@ def run_wakeword_face_loop(
             now = time.monotonic()
             if now - last_poll >= poll_interval:
                 last_poll = now
-                if path.is_file():
-                    mt = path.stat().st_mtime
-                    if mt != last_mtime:
-                        last_mtime = mt
-                        data = _load_json_dict(path)
+                if wake_path.is_file():
+                    mt = wake_path.stat().st_mtime
+                    if mt != wake_mtime:
+                        wake_mtime = mt
+                        data = _load_json_dict(wake_path)
                         if data:
                             st = face_from_wakeword_json(data)
                             if st:
                                 apply(st)
+                if speech_path.is_file():
+                    mt = speech_path.stat().st_mtime
+                    if mt != speech_mtime:
+                        speech_mtime = mt
+                        st = load_face_state_from_file(speech_path)
+                        if st:
+                            apply(st)
             if not display.tick(1.0 / 30.0):
                 break
     finally:

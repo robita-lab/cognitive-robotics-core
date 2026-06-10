@@ -23,7 +23,14 @@ echo "==> Wakeword openWakeWord (base ONNX)..."
 if bash "$ROOT/scripts/setup/wakeword.sh" 2>/dev/null; then
   echo "    Wakeword OK"
 else
-  echo "    AVISO: falta models/udito.onnx — copia tu modelo entrenado y vuelve a ejecutar setup-wakeword-oww.sh"
+  echo "    AVISO: falta models/udito.onnx — copia tu modelo entrenado y vuelve a ejecutar wakeword.sh"
+fi
+
+echo "==> onnxruntime-gpu NVIDIA (Jetson ARM64)..."
+if bash "$ROOT/scripts/setup/install_onnx_jetson.sh"; then
+  echo "    ONNX CUDA OK"
+else
+  echo "    AVISO: falló install_onnx_jetson.sh — revisa JetPack y red"
 fi
 
 mkdir -p "$ROOT/data/huggingface" "$ROOT/logs" \
