@@ -79,7 +79,7 @@ cat <<'HELP'
 Regla:
   • Lo que lanzo yo con ssh udito@10.8.0.16 … corre EN LA JETSON (robot real).
   • ./UDITO en tu terminal de udito-309 corre EN ESTE PC (sin mic del robot).
-  • El agente de Cursor NO abre ventanas en tu terminal; usa SSH al Jetson.
+  • Para el robot real, usa SSH a la Jetson (no el ./UDITO de este PC).
 
 Arrancar en Jetson:
   ssh -t udito@10.8.0.16 'cd /opt/robita-lab && ./UDITO'
