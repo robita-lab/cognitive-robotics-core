@@ -1,11 +1,13 @@
 {
+  "default": "es_ES-carlfm-x_low.onnx",
+  "supersonic_m5": "es_ES-carlfm-x_low.onnx",
   "1": "es_ES-carlfm-x_low.onnx",
   "2": "es_ES-davefx-medium.onnx",
-  "default": "es_ES-davefx-medium.onnx",
   "rejected": ["es_MX-ald-medium.onnx"],
   "notes": {
-    "1": "España · muy baja · robótica (reservada)",
-    "2": "España · media · davefx (uso normal)",
+    "supersonic_m5": "España · x_low carlfm · rápida (length_scale 0.78) · robot UDITO",
+    "1": "España · muy baja · robótica (carlfm)",
+    "2": "España · media · davefx (más natural, más pesada en Jetson)",
     "es_MX-ald-medium.onnx": "descartada: muy lenta"
   }
 }

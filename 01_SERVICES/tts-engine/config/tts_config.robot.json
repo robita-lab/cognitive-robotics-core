@@ -2,8 +2,10 @@
   "voice_rate": 150,
   "voice_volume": 0.9,
   "voice_model": "es_ES-carlfm-x_low.onnx",
-  "length_scale": 1.2,
-  "noise_scale": 0.5,
-  "noise_w": 0.6,
-  "assistant_name": "UDITO"
+  "length_scale": 0.78,
+  "noise_scale": 0.52,
+  "noise_w": 0.62,
+  "sentence_silence": 0.08,
+  "assistant_name": "UDITO",
+  "preset": "supersonic_m5"
 }
