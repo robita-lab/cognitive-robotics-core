@@ -1,0 +1,50 @@
+{
+  "wake_word": "udito",
+  "wake_threshold": 0.3,
+  "wake_threshold_mode": "average",
+  "wake_buffer_size": 3,
+  "wake_debug_mode": true,
+  "wake_provider": "cuda",
+  "wake_preprocessor_device": "cpu",
+  "_comments": {
+    "wake_threshold": "Probabilidad minima (0-1) para considerar deteccion. Calibrar con wake_debug_mode.",
+    "wake_threshold_mode": "single = score del chunk actual; average = media del buffer deslizante.",
+    "wake_buffer_size": "Numero de scores en el buffer deslizante (solo con threshold_mode=average).",
+    "wake_debug_mode": "true = permite python wake.py para monitorizar score sin activar el pipeline.",
+    "wake_provider": "cuda = udito.onnx en GPU; cpu = todo en CPU.",
+    "wake_preprocessor_device": "cpu = melspec+embedding en CPU (evita OOM en Orin Nano); gpu = todo en GPU."
+  },
+  "model": {
+    "path": "models/udito.onnx",
+    "framework": "onnx",
+    "vad_threshold": 0,
+    "base_models_dir": "models/openwakeword"
+  },
+  "audio": {
+    "sample_rate": 16000,
+    "chunk_ms": 80,
+    "voice_energy_min": 0.0002
+  },
+  "detection": {
+    "wakeword_threshold": 0.35,
+    "wakeword_spike_range_min": 0.06,
+    "wakeword_peak_min": 0.55,
+    "wakeword_margin_min": 0.04,
+    "wakeword_rel_spike_min": 0.04,
+    "hits_required": 1,
+    "prob_smooth_window": 3,
+    "cool_down_sec": 2.5,
+    "post_playback_cooldown_sec": 2.0,
+    "post_greet_drain_sec": 0.15,
+    "calibrate_secs": 2.5,
+    "reject_prob_at_or_above": 1.0
+  },
+  "ros2": {
+    "enabled": true,
+    "require_daemon": false,
+    "node_name": "udito_wakeword",
+    "topic_wakeword": "/udito/wakeword",
+    "topic_state": "/udito/state",
+    "event_file": "/tmp/udito_wakeword.json"
+  }
+}

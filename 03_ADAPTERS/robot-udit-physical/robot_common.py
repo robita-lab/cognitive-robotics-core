@@ -67,6 +67,25 @@ def resolve_audio_input() -> int | str | None:
     if key in ("pulse", "default"):
         return key
     patterns = _INPUT_NAME_PATTERNS.get(key, (key,))
+    if key == "respeaker":
+        for idx, info in enumerate(sd.query_devices()):
+            if int(info.get("max_input_channels", 0)) <= 0:
+                continue
+            name = str(info.get("name", "")).lower()
+            if any(p in name for p in patterns):
+                in_ch = int(info.get("max_input_channels", 0))
+                if in_ch > 2:
+                    log.info(
+                        "ReSpeaker %sch ALSA → captura vía Pulse (beamforming; start.sh fija la source)",
+                        in_ch,
+                    )
+                    return "pulse"
+                log.info("Micrófono resuelto: %s → [%s] %s", raw, idx, info.get("name"))
+                return idx
+        log.info(
+            "ReSpeaker: captura vía Pulse (multichannel); ALSA sin entrada usable"
+        )
+        return "pulse"
     for idx, info in enumerate(sd.query_devices()):
         if int(info.get("max_input_channels", 0)) <= 0:
             continue
@@ -120,6 +139,22 @@ _PULSE_SINK_ALIASES = {
     "placa": "alsa_output.platform-sound.analog-stereo",
 }
 
+_PULSE_SOURCE_ALIASES = {
+    "respeaker": "alsa_input.usb-SEEED_ReSpeaker_4_Mic_Array__UAC1.0_-00.multichannel-input",
+}
+
+
+def resolve_pulse_source(audio_input: str) -> str | None:
+    explicit = os.getenv("ROBITA_PULSE_SOURCE", "").strip()
+    if explicit:
+        return explicit
+    key = audio_input.strip().lower()
+    if key in _PULSE_SOURCE_ALIASES:
+        return _PULSE_SOURCE_ALIASES[key]
+    if key.startswith("alsa_input."):
+        return audio_input.strip()
+    return None
+
 
 def resolve_pulse_sink(output: str) -> str | None:
     """Nombre de sink PulseAudio o None = predeterminado del sistema."""
@@ -155,7 +190,8 @@ def status_line(msg: str, *, end: str = "\n") -> None:
 
 
 SERVICES = ROOT / "01_SERVICES"
-WW_CONFIG = SERVICES / "wakeword-engine" / "config" / "wake_word_config.json"
+WW_CONFIG = SERVICES / "wakeword-engine" / "config" / "wakeword.json"
+SESSION_CONFIG = Path(__file__).resolve().parent / "config" / "session.json"
 
 WAKEWORD_ONLY = re.compile(
     r"^(udito|uito|udito\.|hola udito|oye udito|hey udito|udíto)[\s\.\?\!]*$",
@@ -194,44 +230,32 @@ def wait_for_playback_idle(timeout: float = 10.0) -> None:
 
 
 def load_detection_cfg() -> dict:
-    defaults = {
-        "wakeword_threshold": 0.52,
-        "wakeword_spike_range_min": 0.10,
-        "wakeword_peak_min": 0.68,
-        "wakeword_margin_min": 0.055,
-        "wakeword_rel_spike_min": 0.055,
-        "hits_required": 1,
-        "prob_smooth_window": 3,
-        "cool_down_sec": 2.5,
-        "post_playback_cooldown_sec": 2.5,
-        "post_greet_drain_sec": 0.25,
-        "voice_margin": 1.5,
-        "audio_pre_roll_sec": 0.6,
-        "speaker_lock_enabled": True,
-        "speaker_lock_threshold": 0.74,
-        "speaker_lock_min_ratio": 0.45,
-        "speaker_enroll_sec": 0.5,
-        "listen_onset_timeout_sec": 5.0,
-        "min_record_speech_sec": 1.1,
-        "min_stt_audio_sec": 0.85,
-        "wakeword_class_index": 1,
-        "reject_prob_at_or_above": 1.0,
-        "calibrate_secs": 2.5,
-        "speech_margin": 1.8,
-        "silence_after_speech_sec": 0.8,
-        "max_record_sec": 7.0,
-        "min_speech_sec": 0.5,
-        "min_question_chars": 8,
-    }
+    """Une detección wakeword (JSON del módulo) + sesión de voz (JSON del robot)."""
+    cfg: dict = {}
     try:
         with open(WW_CONFIG, encoding="utf-8") as f:
-            det = json.load(f).get("detection", {})
-        for k in defaults:
-            if k in det:
-                defaults[k] = det[k]
-    except Exception:
-        pass
-    return defaults
+            ww_data = json.load(f)
+        cfg.update(ww_data.get("detection", {}))
+        if "wake_word" in ww_data:
+            cfg["wake_word"] = ww_data["wake_word"]
+    except Exception as exc:
+        log.warning("No se pudo leer %s: %s", WW_CONFIG, exc)
+    try:
+        with open(SESSION_CONFIG, encoding="utf-8") as f:
+            cfg.update(json.load(f))
+    except Exception as exc:
+        log.warning("No se pudo leer %s: %s", SESSION_CONFIG, exc)
+    ww_env = os.getenv("ROBITA_WAKEWORD", "").strip()
+    if ww_env:
+        cfg["wake_word"] = ww_env
+    return cfg
+
+
+def wake_phrase(cfg: dict | None = None) -> str:
+    if cfg and str(cfg.get("wake_word", "")).strip():
+        return str(cfg["wake_word"]).strip()
+    env = os.getenv("ROBITA_WAKEWORD", "").strip()
+    return env or "udito"
 
 
 def block_rms(block: np.ndarray) -> float:
@@ -239,6 +263,25 @@ def block_rms(block: np.ndarray) -> float:
     if b.size == 0:
         return 0.0
     return float(np.sqrt(np.mean(b * b)))
+
+
+def input_capture_channels(device: int | str | None) -> tuple[int, bool]:
+    """Canales de captura; downmix=True si hay que promediar (ReSpeaker 6ch)."""
+    if device is None or isinstance(device, str):
+        return 1, False
+    try:
+        n = int(sd.query_devices(device).get("max_input_channels", 1))
+    except Exception:
+        return 1, False
+    if n > 1:
+        return n, True
+    return 1, False
+
+
+def mono_from_capture(indata: np.ndarray) -> np.ndarray:
+    if indata.ndim == 1:
+        return indata.copy().astype(np.float32)
+    return indata.mean(axis=1).astype(np.float32)
 
 
 def calibrate_noise_floor(sample_rate: int, seconds: float) -> float:
@@ -253,14 +296,16 @@ def calibrate_ambient(ww, sample_rate: int, seconds: float, cfg: dict) -> tuple[
     else:
         status_line("Calibrando micrófono…", end="\r")
     dev = audio_input_device()
-    kwargs: dict = {"samplerate": sample_rate, "channels": 1, "dtype": "float32"}
+    cap_ch, downmix = input_capture_channels(dev)
+    kwargs: dict = {"samplerate": sample_rate, "channels": cap_ch, "dtype": "float32"}
     if dev is not None:
         kwargs["device"] = dev
         if verbose_progress():
-            print(f"   micrófono: {dev}")
+            print(f"   micrófono: {dev}" + (f" ({cap_ch}ch→mono)" if downmix else ""))
     audio = sd.rec(int(seconds * sample_rate), **kwargs)
     sd.wait()
-    floor = max(block_rms(audio.reshape(-1)), 1e-5)
+    flat = mono_from_capture(audio) if downmix else audio.reshape(-1)
+    floor = max(block_rms(flat), 1e-5)
     if verbose_progress():
         print(f"   nivel ambiente RMS={floor:.5f}")
 
@@ -270,9 +315,9 @@ def calibrate_ambient(ww, sample_rate: int, seconds: float, cfg: dict) -> tuple[
         voice_margin = float(cfg.get("voice_margin", 5.0))
         energy_min = max(float(getattr(ww, "THRESHOLD_VOICE", 1e-4)), floor * voice_margin * 0.35)
         probs: list[float] = []
-        flat = audio.reshape(-1).astype(np.float32)
-        for start in range(0, max(1, flat.size - block_samples + 1), block_samples // 2):
-            block = flat[start : start + block_samples]
+        cal_flat = flat.astype(np.float32)
+        for start in range(0, max(1, cal_flat.size - block_samples + 1), block_samples // 2):
+            block = cal_flat[start : start + block_samples]
             if block.size < block_samples:
                 break
             if block_rms(block) >= energy_min:
@@ -447,13 +492,50 @@ def play_wav_file(path: str, *, playback_guard_sec: float | None = None) -> bool
     return ok
 
 
+def play_listen_beep(sample_rate: int = 16000) -> None:
+    """Dos tonos cortos por el altavoz — señal de «te escucho» (sin TTS)."""
+    sr = int(sample_rate)
+    parts: list[np.ndarray] = []
+    for freq, dur in ((784, 0.06), (988, 0.08)):
+        n = max(int(sr * dur), 1)
+        t = np.arange(n, dtype=np.float32) / float(sr)
+        ramp = np.minimum(1.0, np.minimum(t / 0.008, (dur - t) / 0.015))
+        parts.append((0.22 * np.sin(2 * np.pi * freq * t) * ramp).astype(np.float32))
+    tone = np.concatenate(parts) if parts else np.zeros(1, dtype=np.float32)
+    pcm = (np.clip(tone, -1.0, 1.0) * 32767.0).astype(np.int16)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
+        path = tmp.name
+    try:
+        with wave.open(path, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sr)
+            wf.writeframes(pcm.tobytes())
+        play_wav_file(path, playback_guard_sec=0.25)
+    except OSError as exc:
+        log.debug("listen beep: %s", exc)
+    finally:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
+
+
+def announce_session_listening() -> None:
+    """Mensaje muy visible en terminal cuando empieza la escucha."""
+    user_progress("")
+    user_progress("═" * 46)
+    user_progress("  ▶ TE ESCUCHO — habla ahora")
+    user_progress("═" * 46)
+
+
 def play_wav_bytes(data: bytes) -> None:
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         tmp.write(data)
         path = tmp.name
     try:
         if not play_wav_file(path):
-            progress("[audio] ERROR — no se oyó nada. Ejecuta: ./scripts/test-audio-standalone.sh")
+            progress("[audio] ERROR — no se oyó nada. Ejecuta: ./scripts/udito/audio-test.sh")
     finally:
         try:
             os.unlink(path)
@@ -492,6 +574,14 @@ class AudioPreRoll:
         return self._buf.copy()
 
 
+def _mic_level_bar(rms: float, thresh: float, width: int = 14) -> str:
+    if thresh <= 0:
+        level = 0
+    else:
+        level = min(width, int(rms / thresh * width))
+    return "█" * level + "░" * (width - level)
+
+
 def record_question_vad(
     audio_q: queue.Queue,
     noise_floor: float,
@@ -503,18 +593,22 @@ def record_question_vad(
     speaker_lock: Optional["SpeakerLock"] = None,
     *,
     wait_playback: bool = False,
+    on_partial_audio: Callable[[np.ndarray, float], None] | None = None,
 ) -> np.ndarray:
     if wait_playback:
         wait_for_playback_idle()
         drain_queue(audio_q, 0.12)
 
-    speech_thresh = max(threshold_voice * 1.8, noise_floor * cfg["speech_margin"])
+    vad_factor = float(cfg.get("vad_energy_factor", 1.8))
+    speech_thresh = max(threshold_voice * vad_factor, noise_floor * cfg["speech_margin"])
     silence_thresh = max(noise_floor * 2.5, speech_thresh * 0.4)
     max_sec = float(cfg["max_record_sec"])
     min_speech_chunks = max(1, int(cfg["min_speech_sec"] / CHUNK_SEC))
     silence_chunks_needed = max(1, int(cfg["silence_after_speech_sec"] / CHUNK_SEC))
     min_record_speech_sec = float(cfg.get("min_record_speech_sec", 1.1))
     onset_timeout = float(cfg.get("listen_onset_timeout_sec", 5.0))
+    mic_feedback = bool(cfg.get("mic_level_feedback", True))
+    partial_interval = float(cfg.get("stt_live_preview_interval_sec", 1.5))
     parts: list[np.ndarray] = []
     if pre_roll is not None and pre_roll.size > 0:
         parts.append(pre_roll.astype(np.float32))
@@ -522,26 +616,45 @@ def record_question_vad(
     speech_chunks = 0
     silence_chunks = 0
     speech_started_at = 0.0
-    progress("[graba] …")
-    # Esperar a que el usuario empiece (no grabar eco de «¿Dime?»)
+    last_ui = 0.0
+    last_partial_at = 0.0
+    peak_rms = 0.0
+    user_progress("[mic] esperando tu voz…")
+    # Esperar a que el usuario empiece a hablar
     onset_deadline = time.time() + onset_timeout
     while time.time() < onset_deadline and not speech_started:
         try:
             data = audio_q.get(timeout=0.2)
         except queue.Empty:
+            if mic_feedback and time.time() - last_ui >= 0.4:
+                user_progress("[mic] escuchando… (habla ahora)", end="\r")
+                last_ui = time.time()
             continue
         for start in range(0, len(data.reshape(-1)), chunk_samples):
             chunk = data.reshape(-1)[start : start + chunk_samples]
             if chunk.size < chunk_samples // 2:
                 continue
-            if block_rms(chunk) >= speech_thresh:
+            r = block_rms(chunk)
+            peak_rms = max(peak_rms, r)
+            if mic_feedback and time.time() - last_ui >= 0.12:
+                user_progress(
+                    f"[mic] {_mic_level_bar(r, speech_thresh)}  "
+                    f"({r:.4f} / {speech_thresh:.4f})",
+                    end="\r",
+                )
+                last_ui = time.time()
+            if r >= speech_thresh:
                 speech_started = True
                 speech_started_at = time.time()
                 parts.append(chunk.astype(np.float32))
                 speech_chunks = 1
+                user_progress("[mic] ● voz detectada — grabando…")
                 break
     if not speech_started:
-        progress("   (sin voz — di la pregunta tras «¿Dime?»)          ")
+        user_progress(
+            f"[mic] sin voz en {onset_timeout:.0f}s "
+            f"(pico={peak_rms:.4f}, umbral={speech_thresh:.4f})"
+        )
         return np.array([], dtype=np.float32)
 
     deadline = time.time() + max_sec
@@ -549,9 +662,18 @@ def record_question_vad(
     last_tick = started_at
     while time.time() < deadline:
         now = time.time()
-        if verbose_progress() and now - last_tick >= 1.0:
-            progress(f"   … grabando ({now - started_at:.0f}s / {max_sec:.0f}s)", end="\r")
+        rec_sec = now - speech_started_at
+        if mic_feedback and now - last_tick >= 0.15:
+            user_progress(f"[mic] ● grabando {rec_sec:.1f}s", end="\r")
             last_tick = now
+        if (
+            on_partial_audio
+            and parts
+            and rec_sec >= partial_interval
+            and (now - last_partial_at) >= partial_interval
+        ):
+            on_partial_audio(np.concatenate(parts), rec_sec)
+            last_partial_at = now
         try:
             data = audio_q.get(timeout=0.25)
         except queue.Empty:
@@ -578,7 +700,7 @@ def record_question_vad(
                     and speech_chunks >= min_speech_chunks
                     and silence_chunks >= silence_chunks_needed
                 ):
-                    progress(f"   audio OK ({speech_chunks} tramos)          ")
+                    user_progress(f"[mic] fin ({rec_sec:.1f}s, {speech_chunks} tramos)")
                     break
         else:
             continue
@@ -640,6 +762,7 @@ def run_voice_assistant(
     ww_baseline: float = 0.5,
 ) -> None:
     """Micrófono siempre abierto. Solo reacciona al wakeword; luego saludo → sesión → escucha."""
+    ww_label = wake_phrase(cfg)
     hi = float(cfg["wakeword_threshold"])
     lo = max(0.0, hi - 0.10)
     spike_range_min = float(cfg.get("wakeword_spike_range_min", 0.10))
@@ -654,7 +777,11 @@ def run_voice_assistant(
     audio_q: queue.Queue = queue.Queue(maxsize=1200)
     buffer = np.zeros(0, dtype=np.float32)
     block_samples = int(sample_rate * float(getattr(ww, "BLOCK_DURATION", 1.0)))
-    hop_samples = block_samples if getattr(ww, "BACKEND", "") == "openwakeword" else max(1, int(block_samples * 0.5))
+    hop_samples = (
+        max(1, block_samples // 2)
+        if getattr(ww, "BACKEND", "") == "openwakeword"
+        else max(1, int(block_samples * 0.5))
+    )
     consecutive_hits = 0
     last_trigger = 0.0
     session_active = False
@@ -667,22 +794,23 @@ def run_voice_assistant(
     def callback(indata, frames, ctime, status):
         if status:
             log.warning("Audio: %s", status)
-        flat = indata.copy().reshape(-1)
+        flat = mono_from_capture(indata.copy())
         pre_roll.push(flat)
         try:
             audio_q.put_nowait(flat)
         except queue.Full:
             pass
 
+    mic = audio_input_device()
+    cap_ch, _downmix = input_capture_channels(mic)
     stream_kwargs: dict = {
         "samplerate": sample_rate,
-        "channels": 1,
+        "channels": cap_ch,
         "dtype": "float32",
         "blocksize": stream_block,
         "latency": "high",
         "callback": callback,
     }
-    mic = audio_input_device()
     if mic is not None:
         stream_kwargs["device"] = mic
         try:
@@ -693,20 +821,28 @@ def run_voice_assistant(
         except Exception:
             mic_name = str(mic)
         cap_hz = input_device_sample_rate(mic, sample_rate)
-        log.info("Micrófono: %s (stream %s Hz)", mic_name, sample_rate)
+        log.info("Micrófono: %s (stream %s Hz%s)", mic_name, sample_rate, f", {cap_ch}ch→mono" if cap_ch > 1 else "")
         if cap_hz != sample_rate:
             log.warning("Dispositivo nativo %s Hz — verifica ROBITA_AUDIO_INPUT", cap_hz)
 
     progress("")
+    try:
+        from ros2_bridge import log_ros2_status, publish_state
+
+        log_ros2_status()
+        publish_state("wakeword_listening")
+    except ImportError:
+        pass
+
     if verbose_progress():
         progress("=" * 52)
-        progress("  LISTO — di «udito» para activar el asistente")
+        progress(f"  LISTO — di «{ww_label}» para activar el asistente")
         progress("=" * 52)
         progress(f"  Activación: pico ≥{float(cfg.get('wakeword_rel_spike_min', 0.055)):.2f} sobre baseline  ({hits_needed} ventana(s))")
-        progress("  Di «udito» claro, cerca del micrófono")
+        progress(f"  Di «{ww_label}» claro, cerca del micrófono")
         progress("")
     else:
-        status_line("Escuchando «udito»…")
+        status_line(f"Escuchando «{ww_label}»…")
 
     with sd.InputStream(**stream_kwargs):
         while True:
@@ -714,7 +850,7 @@ def run_voice_assistant(
                 data = audio_q.get(timeout=0.5)
             except queue.Empty:
                 if verbose_progress() and time.time() - last_heartbeat >= 10.0:
-                    progress("[escucha] LISTO — esperando «udito»…")
+                    progress(f"[escucha] LISTO — esperando «{ww_label}»…")
                     last_heartbeat = time.time()
                 continue
 
@@ -790,6 +926,18 @@ def run_voice_assistant(
                 session_active = True
 
                 progress(f"\n[wake] udito detectado (prob={prob:.2f}, margen={margin:.2f})", always=True)
+                try:
+                    from ros2_bridge import publish_state, publish_wakeword_detected
+
+                    publish_wakeword_detected(
+                        wake_word=str(cfg.get("wake_word", "udito")),
+                        probability=prob,
+                        margin=margin,
+                        baseline=ww_baseline,
+                    )
+                    publish_state("wakeword_detected", probability=prob)
+                except ImportError:
+                    pass
 
                 speaker_lock: Optional[SpeakerLock] = None
                 if _speaker_lock_enabled(cfg):
@@ -809,14 +957,40 @@ def run_voice_assistant(
                     else:
                         speaker_lock = None
 
-                drain_queue(audio_q, 0.2)
+                drain_queue(audio_q, 0.12)
 
-                user_progress("[saludo] TTS local (Piper)…")
-                greet()
-                wait_for_playback_idle()
-                drain_queue(audio_q, float(cfg.get("post_greet_drain_sec", 0.15)))
+                try:
+                    from ros2_bridge import publish_state
 
-                user_progress("[sesión] escuchando…")
+                    publish_state("session_listening")
+                except ImportError:
+                    pass
+                try:
+                    from udito_speech import publish_face_cue
+
+                    publish_face_cue("listening", "te escucho — habla", source="session")
+                except ImportError:
+                    pass
+
+                announce_session_listening()
+                user_progress("[sesión] wakeword pausado — solo micrófono + STT")
+                buffer = np.zeros(0, dtype=np.float32)
+                cue = str(cfg.get("listen_cue", "beep")).strip().lower()
+                if cfg.get("post_wake_greeting", False):
+                    user_progress("[saludo] TTS local (Piper)…")
+                    greet()
+                    wait_for_playback_idle()
+                    drain_queue(audio_q, float(cfg.get("post_greet_drain_sec", 0.1)))
+                elif cue == "beep":
+                    play_listen_beep(sample_rate)
+                    drain_queue(audio_q, 0.08)
+                elif cue == "tts_short":
+                    user_progress("[escucha] Te escucho.")
+                    greet()
+                    wait_for_playback_idle()
+                    drain_queue(audio_q, 0.08)
+                else:
+                    drain_queue(audio_q, 0.06)
                 try:
                     # Sin pre_roll: evita que Whisper transcriba el eco del saludo TTS
                     on_session(audio_q, speaker_lock, None)
@@ -825,15 +999,21 @@ def run_voice_assistant(
                     buffer = np.zeros(0, dtype=np.float32)
                     session_active = False
                     last_trigger = time.time()
+                    try:
+                        from ros2_bridge import publish_state
+
+                        publish_state("idle")
+                    except ImportError:
+                        pass
                     mark_playback_active(float(cfg.get("post_playback_cooldown_sec", 3.0)))
                     user_progress("")
                     if verbose_progress():
                         progress("=" * 52)
-                        progress("  LISTO — di «udito» para activar el asistente")
+                        progress(f"  LISTO — di «{ww_label}» para activar el asistente")
                         progress("=" * 52)
                         progress("")
                     else:
-                        status_line("Escuchando «udito»…")
+                        status_line(f"Escuchando «{ww_label}»…")
 
 
 # compatibilidad etapa 1 / scripts antiguos

@@ -1,0 +1,23 @@
+{
+  "voice_margin": 1.5,
+  "audio_pre_roll_sec": 0.4,
+  "speaker_lock_enabled": true,
+  "speaker_lock_threshold": 0.74,
+  "speaker_lock_min_ratio": 0.45,
+  "speaker_enroll_sec": 0.2,
+  "post_wake_greeting": false,
+  "listen_cue": "beep",
+  "listen_onset_timeout_sec": 6.0,
+  "min_record_speech_sec": 0.45,
+  "stt_live_preview": true,
+  "stt_live_preview_interval_sec": 1.5,
+  "mic_level_feedback": true,
+  "vad_energy_factor": 1.5,
+  "min_stt_audio_sec": 0.4,
+  "speech_margin": 1.8,
+  "silence_after_speech_sec": 0.4,
+  "max_record_sec": 6.0,
+  "min_speech_sec": 0.35,
+  "min_question_chars": 4,
+  "face_demo_step_sec": 1.15
+}

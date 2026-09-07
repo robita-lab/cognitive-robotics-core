@@ -8,7 +8,10 @@ import os
 import queue
 import sys
 import tempfile
+import threading
 from pathlib import Path
+
+import numpy as np
 
 _ROOT = Path(__file__).resolve().parents[2]
 if str(_ROOT / "03_ADAPTERS" / "robot-udit-physical") not in sys.path:
@@ -26,6 +29,8 @@ if str(_KNOWLEDGE) not in sys.path:
     sys.path.insert(0, str(_KNOWLEDGE))
 from load_responses import (  # noqa: E402
     is_goodbye,
+    match_face_command,
+    match_face_demo_cycle,
     match_fun_request,
     message,
     random_fun_fact,
@@ -36,7 +41,14 @@ from load_responses import (  # noqa: E402
     transcript_seems_unusable,
 )
 
-from udito_speech import emotion_for_rag, speak, speak_joke_with_laugh  # noqa: E402
+from udito_speech import (
+    publish_face_cue,
+    run_face_expression_cycle,  # noqa: E402
+    emotion_for_rag,
+    show_face_expression,
+    speak,
+    speak_joke_with_laugh,
+)
 from robot_common import (  # noqa: E402
     SERVICES,
     audio_has_speech,
@@ -145,7 +157,8 @@ class UditoStandalone:
       if hasattr(ww, "load"):
         ww.load()
       self._stt_engine()._ensure_model()
-      status_line("UDITO · listo — di «udito» para activar          ")
+      from robot_common import wake_phrase
+      status_line(f"UDITO · listo — di «{wake_phrase(self.cfg)}» para activar          ")
 
   def _speak_key(self, key: str, label: str, emotion: str = "neutral") -> None:
     text = message(key)
@@ -203,6 +216,30 @@ class UditoStandalone:
     text = sanitize_user_transcript(raw)
     if raw != text:
       progress(f"[stt limpio] {text or '(vacío)'}")
+    demo = match_face_demo_cycle(text)
+    if demo:
+      progress("[cara] ciclo de expresiones", always=True)
+      run_face_expression_cycle(
+        demo,
+        step_sec=float(self.cfg.get("face_demo_step_sec", 1.15)),
+        intro="",
+        tts=self._tts_engine(),
+        play_fn=play_wav_bytes,
+        progress_fn=user_progress,
+      )
+      return True
+    face_cmd = match_face_command(text)
+    if face_cmd:
+      expr_id, reply = face_cmd
+      progress(f"[cara] {expr_id}", always=True)
+      show_face_expression(
+        expr_id,
+        reply,
+        tts=self._tts_engine(),
+        play_fn=play_wav_bytes,
+        progress_fn=user_progress,
+      )
+      return True
     if not text or len(text) < int(self.cfg.get("min_question_chars", 6)):
       self._speak_key("not_understood", "aviso", emotion="sorry")
       return True
@@ -282,6 +319,35 @@ class UditoStandalone:
   def _session_followup_enabled(self) -> bool:
     return os.getenv("ROBITA_SESSION_FOLLOWUP", "0").strip().lower() in ("1", "true", "yes")
 
+  def _live_stt_callback(self, ww):
+    """Vista previa STT mientras grabas (en hilo aparte para no bloquear el mic)."""
+    if not self.cfg.get("stt_live_preview", True):
+      return None
+    stt = self._stt_engine()
+    stt._ensure_model()
+    lock = threading.Lock()
+    busy = {"v": False}
+
+    def on_partial(audio: np.ndarray, _duration: float) -> None:
+      if busy["v"]:
+        return
+
+      def worker() -> None:
+        with lock:
+          if busy["v"]:
+            return
+          busy["v"] = True
+        try:
+          text = stt.transcribe_pcm(audio, ww.SAMPLE_RATE)
+          if text:
+            user_progress(f"[stt ···] {text}          ")
+        finally:
+          busy["v"] = False
+
+      threading.Thread(target=worker, daemon=True).start()
+
+    return on_partial
+
   def _on_session(self, audio_q: queue.Queue, speaker_lock=None, pre_roll=None) -> None:
     ww = self._wakeword()
     chunk_samples = int(ww.SAMPLE_RATE * CHUNK_SEC)
@@ -290,6 +356,7 @@ class UditoStandalone:
       ww.SAMPLE_RATE, chunk_samples, ww.THRESHOLD_VOICE,
       pre_roll=pre_roll,
       speaker_lock=speaker_lock,
+      on_partial_audio=self._live_stt_callback(ww),
     )
     if not audio_has_speech(
       audio, self.noise_floor, self.cfg["speech_margin"],
@@ -303,6 +370,8 @@ class UditoStandalone:
     if not self._check_speaker(audio, speaker_lock, ww):
       return
     audio_sec = float(audio.size) / float(ww.SAMPLE_RATE)
+    publish_face_cue("thinking", "transcribiendo…", source="stt")
+    user_progress("[stt] transcribiendo…")
     text = self._transcribe(audio, ww)
     self._release_stt_if_needed()
     if not text:
@@ -311,6 +380,34 @@ class UditoStandalone:
     text = repair_stt_garbled(text)
     progress(f"[stt] {text}", always=True)
     cleaned = sanitize_user_transcript(text) or text
+    demo = match_face_demo_cycle(cleaned) or match_face_demo_cycle(text)
+    if demo:
+      progress("[cara] ciclo de expresiones", always=True)
+      run_face_expression_cycle(
+        demo,
+        step_sec=float(self.cfg.get("face_demo_step_sec", 1.15)),
+        intro="",
+        tts=self._tts_engine(),
+        play_fn=play_wav_bytes,
+        progress_fn=user_progress,
+      )
+      if not self._session_followup_enabled():
+        progress("[sesión] fin — di «udito» para otra pregunta", always=True)
+      return
+    face_cmd = match_face_command(cleaned) or match_face_command(text)
+    if face_cmd:
+      expr_id, reply = face_cmd
+      progress(f"[cara] {expr_id}", always=True)
+      show_face_expression(
+        expr_id,
+        reply,
+        tts=self._tts_engine(),
+        play_fn=play_wav_bytes,
+        progress_fn=user_progress,
+      )
+      if not self._session_followup_enabled():
+        progress("[sesión] fin — di «udito» para otra pregunta", always=True)
+      return
     if transcript_seems_unusable(cleaned, audio_sec):
       progress("[stt] audio corto o poco claro — pide repetir", always=True)
       self._speak_key("not_understood", "aviso")
@@ -326,6 +423,7 @@ class UditoStandalone:
       audio_q, self.noise_floor, self.cfg,
       ww.SAMPLE_RATE, chunk_samples, ww.THRESHOLD_VOICE,
       speaker_lock=speaker_lock,
+      on_partial_audio=self._live_stt_callback(ww),
     )
     if not audio_has_speech(
       audio2, self.noise_floor, self.cfg["speech_margin"],

@@ -1,5 +1,6 @@
 .env
 .env.local
+.cursor/
 .venv/
 logs/*.log
 logs/*.pid
@@ -11,12 +12,20 @@ __pycache__/
 .DS_Store
 *.swp
 
-# Modelos y cachés (descargar con scripts/download-offline-models.sh)
+# Local / secretos (no subir)
+token_github.txt
+ww2/
+WakeWord-Project/
+=0.4.6
+
+# Modelos wakeword entrenados (opcional en git; copiar con setup/wakeword o sync-jetson)
+# 01_SERVICES/wakeword-engine/models/udito.onnx
+ (descargar con scripts/setup/models-download.sh)
 data/huggingface/
 01_SERVICES/rag-engine/data/rag_cache/
 01_SERVICES/rag-engine/data/memory/
 
-# Piper + voces (instalar en Jetson: scripts/install-piper-aarch64.sh + download-piper-voices-*.sh)
+# Piper + voces (instalar en Jetson: scripts/setup/piper-jetson.sh + download-piper-voices-*.sh)
 01_SERVICES/tts-engine/piper/
 
 # Binarios locales

@@ -9,6 +9,7 @@ import logging
 import os
 import re
 import tempfile
+import time
 import wave
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
@@ -18,20 +19,21 @@ import numpy as np
 
 log = logging.getLogger("udito.speech")
 
-# Pausas tras signos (ms)
-_PAUSE_COMMA = 420
-_PAUSE_SEMI = 520
-_PAUSE_SENTENCE = 750
+# Pausas tras signos (ms) — preset supersonic_m5 (más ágil que davefx)
+_PAUSE_COMMA = 340
+_PAUSE_SEMI = 420
+_PAUSE_SENTENCE = 600
 
+# length_scale < 1 = más rápido (alineado con tts_config.json preset supersonic_m5)
 EMOTION_PROFILES: dict[str, dict[str, Any]] = {
-    "happy": {"length_scale": 0.96, "noise_scale": 0.55, "noise_w": 0.65, "comma_pause_ms": 380},
-    "helpful": {"length_scale": 1.0, "noise_scale": 0.58, "noise_w": 0.68, "comma_pause_ms": 430},
-    "neutral": {"length_scale": 1.02, "noise_scale": 0.6, "noise_w": 0.7, "comma_pause_ms": 400},
-    "sorry": {"length_scale": 1.06, "noise_scale": 0.52, "noise_w": 0.6, "comma_pause_ms": 480},
-    "thinking": {"length_scale": 1.08, "noise_scale": 0.48, "noise_w": 0.58, "comma_pause_ms": 520},
-    "proud": {"length_scale": 0.98, "noise_scale": 0.56, "noise_w": 0.66, "comma_pause_ms": 410},
-    "informative": {"length_scale": 1.0, "noise_scale": 0.57, "noise_w": 0.67, "comma_pause_ms": 440},
-    "laugh": {"length_scale": 0.9, "noise_scale": 0.62, "noise_w": 0.72, "comma_pause_ms": 280},
+    "happy": {"length_scale": 0.74, "noise_scale": 0.55, "noise_w": 0.65, "comma_pause_ms": 300},
+    "helpful": {"length_scale": 0.78, "noise_scale": 0.58, "noise_w": 0.68, "comma_pause_ms": 330},
+    "neutral": {"length_scale": 0.78, "noise_scale": 0.6, "noise_w": 0.7, "comma_pause_ms": 310},
+    "sorry": {"length_scale": 0.82, "noise_scale": 0.52, "noise_w": 0.6, "comma_pause_ms": 370},
+    "thinking": {"length_scale": 0.84, "noise_scale": 0.48, "noise_w": 0.58, "comma_pause_ms": 400},
+    "proud": {"length_scale": 0.76, "noise_scale": 0.56, "noise_w": 0.66, "comma_pause_ms": 320},
+    "informative": {"length_scale": 0.78, "noise_scale": 0.57, "noise_w": 0.67, "comma_pause_ms": 340},
+    "laugh": {"length_scale": 0.70, "noise_scale": 0.62, "noise_w": 0.72, "comma_pause_ms": 220},
 }
 
 
@@ -325,6 +327,76 @@ def publish_speech_event(event: SpeechEvent) -> None:
 
 _ROS_NODE = None
 _ROS_PUB = None
+
+
+def publish_face_cue(
+    emotion: str,
+    label: str = "",
+    *,
+    source: str = "pipeline",
+) -> None:
+    """Actualiza pantalla/ROS2 sin TTS (escuchando, transcribiendo, etc.)."""
+    publish_speech_event(
+        SpeechEvent(
+            text=label,
+            emotion=emotion,
+            source=source,
+            label=emotion,
+        )
+    )
+
+
+def run_face_expression_cycle(
+    steps: list[tuple[str, str]],
+    *,
+    step_sec: float = 1.15,
+    intro: str = "Mira las expresiones.",
+    tts=None,
+    play_fn: Callable[[bytes], None] | None = None,
+    progress_fn: Callable[[str], None] | None = None,
+) -> None:
+    """Ciclo sincronizado de expresiones en pantalla (y ROS2 / JSON)."""
+    if progress_fn:
+        progress_fn(f"[cara demo] {len(steps)} expresiones")
+    if intro and tts is not None and play_fn is not None:
+        wav, event = synthesize_with_pauses(tts, intro, "helpful")
+        event.source = "face_demo"
+        event.label = "intro"
+        publish_speech_event(event)
+        if wav:
+            play_fn(wav)
+    pause = max(0.35, float(step_sec))
+    for expr, caption in steps:
+        publish_face_cue(expr, caption, source="face_demo")
+        if progress_fn:
+            progress_fn(f"[cara demo] {expr}")
+        time.sleep(pause)
+
+
+def show_face_expression(
+    expression: str,
+    reply: str = "",
+    *,
+    tts=None,
+    play_fn: Callable[[bytes], None] | None = None,
+    progress_fn: Callable[[str], None] | None = None,
+    speak_reply: bool = True,
+) -> None:
+    """Actualiza pantalla/ROS2 al instante; opcionalmente dice una frase corta."""
+    event = SpeechEvent(
+        text=reply,
+        emotion=expression,
+        source="face_command",
+        label="cara",
+    )
+    publish_speech_event(event)
+    if not speak_reply or not (reply or "").strip() or tts is None or play_fn is None:
+        return
+    if progress_fn:
+        progress_fn(f"[cara] ({expression}) {reply[:60]}")
+    wav, _ = synthesize_with_pauses(tts, reply, expression)
+    if wav:
+        play_fn(wav)
 
 
 def speak(

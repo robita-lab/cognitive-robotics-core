@@ -6,8 +6,12 @@ Pensado para uso en KnowledgeAssist-AI / voice-assistant.
 
 import json
 import logging
+import tempfile
+import wave
 from pathlib import Path
 from typing import Optional, Dict, Any
+
+import numpy as np
 
 logger = logging.getLogger("voice_assistant.stt")
 
@@ -82,6 +86,38 @@ class WhisperSTT:
         import gc
         gc.collect()
         logger.info("Modelo Whisper liberado de RAM")
+
+    def _pcm_to_wav(self, audio: np.ndarray, sample_rate: int) -> str:
+        audio = np.clip(audio.reshape(-1).astype(np.float32), -1.0, 1.0)
+        pcm = (audio * 32767).astype(np.int16)
+        tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
+        path = tmp.name
+        tmp.close()
+        with wave.open(path, "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(pcm.tobytes())
+        return path
+
+    def transcribe_pcm(
+        self,
+        audio: np.ndarray,
+        sample_rate: int,
+        language: Optional[str] = None,
+    ) -> Optional[str]:
+        """Transcribe PCM mono float32 (vista previa en vivo durante la grabación)."""
+        if audio is None or audio.size < int(sample_rate * 0.25):
+            return None
+        path = self._pcm_to_wav(audio, sample_rate)
+        try:
+            result = self.transcribe(path, language=language)
+            return (result or {}).get("text", "").strip() or None
+        finally:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except OSError:
+                pass
 
     def transcribe(self, audio_path: str, language: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """

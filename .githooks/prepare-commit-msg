@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Elimina líneas Co-authored-by de herramientas IA antes de crear el commit.
+# Instalar: git config core.hooksPath .githooks
+set -euo pipefail
+MSG_FILE="${1:?}"
+case "${2:-}" in
+  merge|squash) exit 0 ;;
+esac
+if [[ -f "$MSG_FILE" ]]; then
+  sed -i '/^Co-authored-by: Cursor/d;/^Co-authored-by: cursor/d;/cursoragent@cursor\.com/d' "$MSG_FILE"
+fi

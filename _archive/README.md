@@ -1,14 +1,24 @@
-# Archivo / historial — no usar en ejecución
+# Archivo — no ejecutar
 
-Contenido **fuera del árbol activo** del proyecto. Se conserva por referencia o recuperación.
+Material **fuera del árbol activo** de la rama `develop` (Jetson offline).
 
 | Carpeta | Contenido |
 |---------|-----------|
-| `historial/scripts/` | Scripts sustituidos o solo servidor antiguo |
-| `historial/logs/` | Logs de instalación viejos |
-| `historial/piper/` | Binario Piper x86_64 (Jetson usa aarch64) |
-| `historial/tts/` | `piper_tts.py` duplicado (activo: `piper_tts_real.py`) |
-| `historial/raw-docs/` | PDF duplicado |
-| `historial/rag-factory/` | Carpeta vacía legacy |
+| **`modo-online/`** | Cerebro remoto, Docker, `udito.py` edge, orquestador — ver [modo-online/README.md](modo-online/README.md) |
+| **`scripts/legacy/`** | Scripts sustituidos (Menu_Udito, fetch viejos, etc.) |
+| **`historial/`** | Basura movida por `scripts/lib/cleanup-project.sh` |
 
-No borrar manualmente sin revisar. El script `scripts/cleanup-project.sh` mueve aquí lo que deja de ser necesario.
+## Ramas
+
+| Rama | Qué contiene |
+|------|----------------|
+| **`develop`** | Solo offline — no hay `scripts/server/` ni `docker-compose.yml` en raíz |
+| **`develop-base`** | Referencia histórica; debe incluir este `_archive/` tras merge desde `develop` |
+
+```bash
+# Tras commit en develop, sincronizar archivo en develop-base:
+git checkout develop-base
+git merge develop -m "chore: sincronizar _archive desde develop"
+```
+
+No borrar manualmente sin revisar.

@@ -1,34 +1,41 @@
-# Estructura del proyecto (activo)
+# Estructura del proyecto (rama `develop` — Jetson offline)
 
 ```
 /opt/robita-lab/
-├── 01_SERVICES/          # Motores: STT, TTS, wakeword (OWW en Jetson), RAG, orquestador
-├── 02_AGENTS_FACTORY/    # Perfil udit-robot-brain
-├── 03_ADAPTERS/          # udito.py, udito_standalone.py, robot_common.py
-├── 04_KNOWLEDGE_CORE/    # knowledge-text/ + responses/ + raw-docs/ (ver README ahí)
-├── data/huggingface/     # Modelos descargados (no versionar)
-├── logs/                 # Logs en ejecución (vacío tras limpieza)
-├── scripts/              # Arranque y utilidades
-├── .env                  # Config local (no subir a git)
-├── README.md
+├── 01_SERVICES/          # wakeword, STT, TTS, RAG (librerías locales)
+├── 03_ADAPTERS/robot-udit-physical/   # udito_standalone.py, robot_common.py
+├── 04_KNOWLEDGE_CORE/    # textos + PDFs RAG
+├── 05_ROS2/              # topics wakeword + voz
+├── scripts/              # ver scripts/README.md
+├── UDITO                   # atajo → scripts/udito/start.sh
+├── data/huggingface/     # modelos (no en git)
+├── logs/
 ├── DEPLOY_JETSON_OFFLINE.md
-└── _archive/             # Historial / archivos retirados (no ejecutar)
+└── _archive/             # historial + modo online retirado
 ```
 
-## Scripts principales
+## Ramas
 
-| Script | Uso |
-|--------|-----|
-| `udito-run.sh` | Pipeline con elección online/offline + preparación |
-| `Menu_Udito.sh` | Menú de pruebas |
-| `prepare-pipeline.sh` | Limpieza y liberar RAM (automático en udito-run) |
-| `cleanup-project.sh` | Mover basura a `_archive/historial` |
-| `setup-jetson-offline.sh` | Primera instalación Jetson |
-| `setup-wakeword-oww.sh` | Modelos base openWakeWord + comprobar `udito.onnx` |
-| `udito_standalone.sh` | Offline directo (sin menú de modo) |
-| `start-udito-visible.sh` | Offline con log en terminal + tee a logs/ |
-| `find-speaker.sh` | Menú micrófono / altavoz → .env |
+| Rama | Contenido |
+|------|-----------|
+| **`develop`** | Trabajo activo — **solo offline** en Jetson |
+| **`develop-base`** | Referencia histórica; incluye `_archive/` con modo servidor |
+| **`main`** | Releases antiguos |
 
-## Servidor (modo online, misma rama)
+Modo online (Docker, cerebro remoto, `udito.py` edge): [`_archive/modo-online/`](_archive/modo-online/README.md)
 
-`launch.sh`, `stop.sh`, `udito.sh`, `start-services.sh`, `udito_virtual.sh`, `watch-robot.sh`, `status-robot.sh`
+---
+
+## Comandos
+
+| Comando | Uso |
+|---------|-----|
+| **`./UDITO`** | Arrancar robot offline |
+| `./scripts/setup/jetson.sh` | Primera instalación |
+| `./scripts/setup/models-download.sh` | Whisper + RAG |
+| `./scripts/udito/audio-config.sh` | Micrófono y altavoz |
+| `./scripts/udito/face-sim.sh` | Pantalla ojos (opcional) |
+| `./scripts/ros2/listener-wakeword.sh` | ROS2 (opcional) |
+| `./scripts/dev/sync-jetson.sh` | PC → Jetson |
+
+Índice completo: [scripts/README.md](scripts/README.md)

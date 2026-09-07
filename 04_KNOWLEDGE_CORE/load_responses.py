@@ -16,6 +16,7 @@ _conversation: dict[str, Any] | None = None
 _qa: dict[str, Any] | None = None
 _pre_search: dict[str, Any] | None = None
 _fun_notes: dict[str, Any] | None = None
+_face_commands: list[dict[str, Any]] | None = None
 
 
 def knowledge_core() -> Path:
@@ -391,3 +392,66 @@ def shorten_for_voice(text: str, max_sentences: int = 2, max_chars: int = 220) -
         if result and result[-1] not in ".!?":
             result += "."
     return result or text[:max_chars]
+
+
+def load_face_commands(force: bool = False) -> list[dict[str, Any]]:
+    global _face_commands
+    if _face_commands is None or force:
+        data = _read_json(responses_dir() / "face_commands.json")
+        _face_commands = list(data.get("expressions") or [])
+    return _face_commands
+
+
+FACE_DEMO_KEYWORDS = (
+    "muestrame expresiones",
+    "muestra expresiones",
+    "muestra las expresiones",
+    "muestrame las expresiones",
+    "haz un ciclo de expresiones",
+    "ciclo de expresiones",
+    "demo de expresiones",
+    "ensename expresiones",
+    "enseñame expresiones",
+    "ensename las expresiones",
+    "enseñame las expresiones",
+)
+
+FACE_DEMO_SEQUENCE: tuple[tuple[str, str], ...] = (
+    ("happy", "Sonrío."),
+    ("wink", "Guiño un ojo."),
+    ("surprised", "¡Sorpresa!"),
+    ("laugh", "Jaja."),
+    ("tongue", "Lengua fuera."),
+    ("idle", "Listo."),
+)
+
+
+def match_face_demo_cycle(text: str) -> list[tuple[str, str]] | None:
+    """Comando «muéstrame expresiones» → secuencia sincronizada en pantalla."""
+    t = _norm(text)
+    if not t:
+        return None
+    for phrase in FACE_DEMO_KEYWORDS:
+        if _norm(phrase) in t:
+            return list(FACE_DEMO_SEQUENCE)
+    return None
+
+
+def match_face_command(text: str) -> tuple[str, str] | None:
+    """Comando directo a la pantalla (sin RAG). Coincidencia exacta por keywords."""
+    t = _norm(text)
+    if not t:
+        return None
+    best: tuple[str, str] | None = None
+    best_len = 0
+    for expr in load_face_commands():
+        eid = str(expr.get("id", "")).strip()
+        if not eid:
+            continue
+        reply = str(expr.get("reply", "De acuerdo.")).strip()
+        for phrase in expr.get("keywords") or []:
+            p = _norm(str(phrase))
+            if p and p in t and len(p) > best_len:
+                best_len = len(p)
+                best = (eid, reply)
+    return best
