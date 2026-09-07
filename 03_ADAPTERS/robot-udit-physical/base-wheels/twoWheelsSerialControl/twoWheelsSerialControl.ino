@@ -11,10 +11,10 @@
 
 // Pin Declarations
 
-#define R_PIN_DIR 2      // Motor direction signal
-#define R_PIN_PWM 3      // PWM motor speed control
-#define R_PIN_SPEED 4   // SC Speed Pulse Output from RioRand board
-#define R_PIN_BRAKE 5    // Motor brake signal (true frena)
+#define R_PIN_DIR 2      // Motor direction signal - blue
+#define R_PIN_PWM 3      // PWM motor speed control - white
+#define R_PIN_SPEED 4   // SC Speed Pulse Output from RioRand board - green
+#define R_PIN_BRAKE 5    // Motor brake signal (true frena) - yellow
 
 #define L_PIN_DIR 7      // Motor direction signal
 #define L_PIN_PWM 9      // PWM motor speed control
@@ -69,8 +69,8 @@ int r_readIndex = 0;
 bool noLoop = false;
 
 double Kp = 5E-6;//0.1;//0.02;
-double Kd = 0;//0.7;//0.05;//0.1;//0.01;//30;//0.5;//2;
-double Ki = 0;//1E-7;
+double Kd = 2E-4;//0.7;//0.05;//0.1;//0.01;//30;//0.5;//2;
+double Ki = 10E-9;
  
 
 // This is ran only once at startup
@@ -140,7 +140,8 @@ void rightControlLoop() {
 //  r_p_err = (r_period_uS_mean - r_sp_period) / r_sp_period;
   r_p_err = (r_period_uS_mean - r_sp_period);
     
-  r_p_err_sum += r_p_err * r_ellapsed_time;
+//  r_p_err_sum += r_p_err * r_ellapsed_time;
+  r_p_err_sum = (r_p_err + r_p_err_old) * r_ellapsed_time;
   r_pwm = r_pwm + Kp * r_p_err + Ki * (r_p_err_sum) + Kd*(r_p_err_old - r_p_err) / (r_ellapsed_time + 1);
   
   r_p_err_old = r_p_err;
@@ -148,6 +149,7 @@ void rightControlLoop() {
   
   if(r_pwm > 255 ) r_pwm = 255.0;
   if(r_pwm < 0 ) r_pwm = 0.0;
+  delay(1);
 }
 
 
