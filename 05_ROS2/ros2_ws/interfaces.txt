@@ -1,0 +1,5 @@
+#
+#   Información de los distintos tipos de mensajes, topics y servidores
+#
+
+0

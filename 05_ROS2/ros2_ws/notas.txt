@@ -1,0 +1,20 @@
+# create ROS package
+ros2 pkg create --build-type ament_cmake --license Apache-2.0 tutorial_interfaces
+
+# make clean colcon
+rm -rf build install log
+colcon build --cmake-clean-cache
+
+
+# create ROS package
+ros2 pkg create --build-type ament_cmake --license Apache-2.0 tutorial_interfaces
+
+# make clean colcon
+rm -rf build install log
+colcon build --cmake-clean-cache
+
+# Nomenclaturas:
+- foo_server, para cualquier servidor
+- foo_behavior, servidores que comparten mensajes Behavior.srv, y son secuenciados
+
+

@@ -1,0 +1,53 @@
+<<<<<<< HEAD
+<?xml version="1.0"?>
+<package format="3">
+  <name>respeaker_ros</name>
+  <version>0.0.0</version>
+  <description>The respeaker_ros package</description>
+  <maintainer email="furushchev@jsk.imi.i.u-tokyo.ac.jp">Yuki Furuta</maintainer>
+  <license>Apache</license>
+  <author email="furushchev@jsk.imi.i.u-tokyo.ac.jp">Yuki Furuta</author>
+
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <!--buildtool_depend>catkin</buildtool_depend>
+  <depend condition="$ROS_PYTHON_VERSION == 3">catkin_virtualenv</depend-->
+  <depend>angles</depend>
+  <!--depend>audio_common_msgs</depend-->
+  <!--depend>dynamic_reconfigure</depend-->
+  <depend>geometry_msgs</depend>
+  <depend>portaudio19-dev</depend>
+  <depend>python3-pyaudio</depend>
+  <!--depend>speech_recognition_msgs</depend-->
+  <depend>std_msgs</depend>
+  <!--depend>tf</depend-->
+  <export>
+    <pip_requirements>requirements.txt</pip_requirements>
+  </export>
+</package>
+=======
+<?xml version="1.0"?>
+<package format="3">
+  <name>respeaker_ros</name>
+  <version>0.0.0</version>
+  <description>The respeaker_ros package</description>
+  <maintainer email="furushchev@jsk.imi.i.u-tokyo.ac.jp">Yuki Furuta</maintainer>
+  <license>Apache</license>
+  <author email="furushchev@jsk.imi.i.u-tokyo.ac.jp">Yuki Furuta</author>
+
+  <buildtool_depend>rosidl_default_generators</buildtool_depend>
+  <!--buildtool_depend>catkin</buildtool_depend>
+  <depend condition="$ROS_PYTHON_VERSION == 3">catkin_virtualenv</depend-->
+  <depend>angles</depend>
+  <!--depend>audio_common_msgs</depend-->
+  <!--depend>dynamic_reconfigure</depend-->
+  <depend>geometry_msgs</depend>
+  <depend>portaudio19-dev</depend>
+  <depend>python3-pyaudio</depend>
+  <!--depend>speech_recognition_msgs</depend-->
+  <depend>std_msgs</depend>
+  <!--depend>tf</depend-->
+  <export>
+    <pip_requirements>requirements.txt</pip_requirements>
+  </export>
+</package>
+>>>>>>> d75813b06134359daeaea89edeabe871241fbad3
