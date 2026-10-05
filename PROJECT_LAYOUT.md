@@ -3,9 +3,10 @@
 ```
 /opt/robita-lab/
 ├── 01_SERVICES/          # wakeword, STT, TTS, RAG (librerías locales)
+│   └── llm-engine/       # LLM conversacional (HTTP, opcional — ROBITA_LLM_URL)
 ├── 03_ADAPTERS/robot-udit-physical/   # udito_standalone.py, robot_common.py
 ├── 04_KNOWLEDGE_CORE/    # textos + PDFs RAG
-├── 05_ROS2/              # topics wakeword + voz
+├── 05_ROS2/              # topics wakeword + voz; llm_dialog_manager (diálogo ROS 2)
 ├── scripts/              # ver scripts/README.md
 ├── UDITO                   # atajo → scripts/udito/start.sh
 ├── data/huggingface/     # modelos (no en git)
