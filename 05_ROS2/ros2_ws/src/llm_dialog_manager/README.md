@@ -5,8 +5,13 @@ intent, sends the turn to either the on-robot local LLM tier or the GPU server
 tier, and forwards the reply to the `com_act_server` service.
 
 This package is the **Tier-1 (on-robot)** half of the two-tier architecture
-described in `udito/server-side/ARCHITECTURE.md`. It replaces
-`watson_dialog_manager` for new work; Watson stays in tree as legacy.
+described in `01_SERVICES/llm-engine/ARCHITECTURE.md`. In the layered
+architecture v2 it sits in the C.C. (ROS 2) layer: it asks the Cognitive layer
+(`llm-engine`) *what* to say and hands it to `com_act_server` to decide *how*.
+
+> The live offline pipeline (`./UDITO`) does not use ROS for dialog; it calls
+> `llm-engine` directly via `03_ADAPTERS/robot-udit-physical/llm_fallback.py`.
+> This node is the ROS 2 path, for when STT/expression run as ROS nodes.
 
 ## Components
 
@@ -28,7 +33,7 @@ described in `udito/server-side/ARCHITECTURE.md`. It replaces
 ### Build
 
 ```bash
-cd udito/ros2_ws
+cd 05_ROS2/ros2_ws
 colcon build --packages-select llm_dialog_manager
 source install/setup.bash
 ```
@@ -50,7 +55,7 @@ Uses a mock ComAct service so no head / TTS hardware is needed:
 
 ```bash
 # terminal 1 — FastAPI server
-cd udito/server-side && docker compose up
+cd 01_SERVICES/llm-engine && docker compose up
 
 # terminal 2 — dialog manager + mock ComAct
 ros2 launch llm_dialog_manager llm_dialog_test.launch.py \
@@ -73,7 +78,7 @@ The fastest inner loop when iterating on the router or the server. No ROS,
 no robot, no hardware.
 
 ```bash
-cd udito/ros2_ws/src/llm_dialog_manager
+cd 05_ROS2/ros2_ws/src/llm_dialog_manager
 pip install httpx
 python -m llm_dialog_manager.cli \
     --server-url http://localhost:8080 \
@@ -103,7 +108,7 @@ python -m llm_dialog_manager.cli --once "Hola UDITO"
 ### Unit tests (router only — no ROS, no server required)
 
 ```bash
-cd udito/ros2_ws/src/llm_dialog_manager
+cd 05_ROS2/ros2_ws/src/llm_dialog_manager
 pytest test/test_router.py
 ```
 
