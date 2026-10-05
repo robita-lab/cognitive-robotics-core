@@ -98,9 +98,8 @@ class LLMDialogManager(Node):
             )
             self._send_comact("Perdona, ahora no te oigo bien.", "SAD")
 
-    def _send_comact(self, text: str, gesture: str, cmd: str = "speak") -> None:
+    def _send_comact(self, text: str, gesture: str) -> None:
         req = ComActMsg.Request()
-        req.cmd = cmd
         req.text = text
         req.gesture = gesture
         req.data = int(self.get_parameter("default_duration").value)

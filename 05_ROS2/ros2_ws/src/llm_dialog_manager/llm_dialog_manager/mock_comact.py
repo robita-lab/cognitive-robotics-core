@@ -20,8 +20,8 @@ class MockComActServer(Node):
 
     def _on_request(self, request: ComActMsg.Request, response: ComActMsg.Response):
         self.get_logger().info(
-            "[mock com_act] cmd=%r gesture=%r data=%d text=%r"
-            % (request.cmd, request.gesture, request.data, request.text)
+            "[mock com_act] gesture=%r data=%d text=%r"
+            % (request.gesture, request.data, request.text)
         )
         response.rta = "ACK"
         return response
