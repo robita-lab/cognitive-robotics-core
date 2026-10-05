@@ -1,8 +1,8 @@
 # UDITO — Server-Side LLM Architecture
 
-**Component:** `udito/server-side/`
-**Feature branch:** `feature/llm-server-side`
-**Status:** Slice 1 scaffold landing in this branch. Slices 2 and 3 follow.
+**Component:** `01_SERVICES/llm-engine/` in `robita-lab/cognitive-robotics-core`
+**Origin:** migrated from `robita-lab/udito` branch `feature/llm-server-side` (history preserved).
+**Status:** Slice 1 done. Slices 2 and 3 follow.
 
 ---
 
@@ -16,6 +16,26 @@ Exposes UDITO's dialogue generation as a **network-callable service**, so that:
 - Future consumers (dashboards, evaluation harnesses) share one endpoint.
 
 The service wraps an **OpenAI-compatible** inference backend (Ollama by default), maintains per-conversation memory in **Redis**, and streams tokens back over **SSE** so the robot's TTS can start speaking on the first sentence boundary rather than on the last token.
+
+### 1.1 Place in the layered architecture v2 (ROBITA-lab)
+
+In the lab's three-layer architecture (Cognitive · C.C. ROS 2 · sensors/actuators),
+`llm-engine` lives in the **Cognitive** layer: it covers *LLM* and the short-term
+part of *Memoria*. It never drives an actuator; replies go back down through the
+C.C. layer. It has two consumers in this repo:
+
+| Consumer | Where | When the LLM is used |
+|---|---|---|
+| Offline pipeline (`./UDITO`) | `03_ADAPTERS/robot-udit-physical/llm_fallback.py`, called from `udito_standalone._process_text` | Only if `ROBITA_LLM_URL` is set, and only for queries the `rag-engine` classifies as general (`source == "gpt"`). University questions stay on RAG so the LLM cannot invent UDIT facts. |
+| ROS 2 dialog manager | `05_ROS2/ros2_ws/src/llm_dialog_manager` | `stt_topic` → router → `/v1/chat` → `com_act_server` (expression coordinator, C.C. layer). |
+
+`rag-engine` keeps owning documents and fixed Q&A; its own LLM backend is `none`
+on the Jetson, so `llm-engine` adds conversation rather than competing with it.
+
+**Jetson caveat:** `scripts/lib/prepare-pipeline.sh` stops Ollama and every Docker
+container by default. To run `llm-engine` on the robot itself, set
+`ROBITA_STOP_OLLAMA=0` and `ROBITA_STOP_DOCKER=0`. Port 8080 is outside the
+8000–8004 range that script also clears.
 
 ---
 
@@ -87,7 +107,7 @@ user stops speaking ──▶ STT ──▶ router ──▶ LLM ──▶ TTS �
 | **LLM (target TTFT, local tier, 0.5B CPU)** | **80–150 ms** |
 | **LLM (target TTFT, server tier, 3B GPU)** | **150–300 ms** |
 | LAN round trip (server only) | 1–5 ms |
-| TTS (Coqui vits, first chunk) | ~500 ms |
+| TTS (first chunk; measured with Coqui vits, Piper on Jetson TBD) | ~500 ms |
 | **Total to first speech (local)** | **~800 ms–1.1 s** |
 | **Total to first speech (server)** | **~1.0–1.3 s** |
 
@@ -180,8 +200,8 @@ Streaming response: SSE events of shape `{"type": "token", "value": "..."}`, ter
 ### 7.2 Repository layout (in this commit)
 
 ```
-udito/server-side/
-├── README.md                      # already committed
+01_SERVICES/llm-engine/
+├── README.md
 ├── ARCHITECTURE.md                # this doc
 ├── pyproject.toml                 # uv-managed; deps pinned
 ├── .python-version                # 3.12
@@ -238,7 +258,7 @@ udito/server-side/
 - Gated RAG, vector store, embeddings (Slice 3).
 - Authentication / rate limiting.
 - Metrics endpoint (can add Prometheus in Slice 2).
-- The ROS-side `llm_dialog_manager` node — that's a separate change on the robot side, tracked in a follow-up branch.
+- ~~The ROS-side `llm_dialog_manager` node~~ — done, see `05_ROS2/ros2_ws/src/llm_dialog_manager`.
 
 ---
 
@@ -246,7 +266,7 @@ udito/server-side/
 
 ```bash
 # server tier (default)
-cd udito/server-side
+cd 01_SERVICES/llm-engine
 cp .env.example .env
 docker compose up --build
 
@@ -267,7 +287,7 @@ uv run pytest
 
 ## 9. Open items for Slice 2+
 
-- ROS router implementation + `llm_dialog_manager` node — depends on which ROS2 distro we commit to (see `docs/01-repo-analysis.md` §14).
+- `colcon build` + on-robot test of `llm_dialog_manager` on ROS 2 Humble (Jetson). Needs the legacy `stt_publisher` / `com_act_server` to drop their hardcoded `/home/udito/...` imports first.
 - Summarisation strategy for the rolling window (manual prompt vs dedicated small model).
 - Whether to add a tiny local Redis in the local tier.
 - Evaluation harness (golden-set prompts, latency + quality metrics).
