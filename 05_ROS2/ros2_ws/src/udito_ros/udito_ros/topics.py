@@ -16,3 +16,8 @@ INTENT = "/udito/intent"              # {"name","text","args"} para cuerpo (cuel
 # C.C. <-> capa deliberativa (Cognitive)
 COG_QUERY = "/udito/cognitive/query"  # {"id","text"}
 COG_ANSWER = "/udito/cognitive/answer"  # {"id","text","emotion","source"}
+
+# Consola del operador
+POWER = "/udito/power"                # Bool: botón ENCENDER / APAGAR
+STT_PTT = "/udito/stt/ptt"            # Bool: «mantén para hablar» (true = grabando)
+CC_LOG = "/udito/cc/log"              # String: qué está haciendo el C.C., paso a paso

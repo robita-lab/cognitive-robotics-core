@@ -29,11 +29,21 @@ class TtsNode(Node):
         import udito_speech
 
         self._speech = udito_speech
-        self._play = robot_common.play_wav_bytes
+        self._play_raw = robot_common.play_wav_bytes
         cfg = os.getenv(
             "ROBITA_TTS_CONFIG", str(SERVICES / "tts-engine" / "config" / "tts_config.json")
         )
         self.tts = PiperTTS(config_path=cfg)
+        # Volumen guardado en la pantalla de audio (software + hardware si se puede)
+        import udito_audio
+
+        self._audio = udito_audio
+        self._volume = udito_audio.env_volume()
+        try:
+            udito_audio.apply_env_volume()
+        except Exception as e:  # noqa: BLE001
+            self.get_logger().warning(f"Volumen hardware no aplicado: {e}")
+        self.get_logger().info(f"Volumen voz: {self._volume}%")
 
         self.pub_face = self.create_publisher(String, topics.SPEECH_OUT, 10)
         self.pub_state = self.create_publisher(String, topics.STATE, 10)
@@ -43,6 +53,9 @@ class TtsNode(Node):
         self._q: queue.Queue[dict] = queue.Queue()
         threading.Thread(target=self._worker, daemon=True).start()
         self.get_logger().info(f"TTS listo — escuchando {topics.TTS_SAY}")
+
+    def _play(self, wav: bytes) -> None:
+        self._play_raw(self._audio.scale_wav(wav, self._volume))
 
     def _on_say(self, msg: String) -> None:
         try:

@@ -13,6 +13,7 @@ setup(
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
         ("share/" + package_name, ["package.xml"]),
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
+        (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -26,6 +27,8 @@ setup(
             "tts_node = udito_ros.tts_node:main",
             "orchestrator_node = udito_ros.orchestrator_node:main",
             "cognitive_node = udito_ros.cognitive_node:main",
+            "console_node = udito_ros.console_node:main",
+            "body_example_node = udito_ros.body_example_node:main",
         ],
     },
 )

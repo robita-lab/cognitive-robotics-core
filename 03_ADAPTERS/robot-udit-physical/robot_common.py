@@ -535,7 +535,7 @@ def play_wav_bytes(data: bytes) -> None:
         path = tmp.name
     try:
         if not play_wav_file(path):
-            progress("[audio] ERROR — no se oyó nada. Ejecuta: ./scripts/udito/audio-test.sh")
+            progress("[audio] ERROR — no se oyó nada. Ejecuta: ./scripts/udito/audio.sh")
     finally:
         try:
             os.unlink(path)

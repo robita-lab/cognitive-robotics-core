@@ -24,6 +24,13 @@ command -v colcon >/dev/null || { echo "Falta colcon: sudo apt install -y python
 VENV_SP="$(ls -d "$ROOT"/.venv/lib/python3*/site-packages 2>/dev/null | head -1 || true)"
 [[ -n "$VENV_SP" ]] || { echo "Falta .venv — ejecuta ./scripts/setup/jetson.sh"; exit 1; }
 if [[ -f "$ROOT/.env" ]]; then set -a; source "$ROOT/.env" || true; set +a; fi
+# Jetson: mismas variables que el modo standalone (modelos en data/huggingface, bajo consumo)
+[[ "$(uname -m)" == "aarch64" && -f "$ROOT/scripts/lib/jetson-env.sh" ]] && source "$ROOT/scripts/lib/jetson-env.sh"
+
+# Una sola instancia: si quedó otra corriendo, se cierra (evita respuestas duplicadas)
+pkill -f "lib/udito_ros/" 2>/dev/null || true
+pkill -f "udito_face.py" 2>/dev/null || true
+sleep 1
 
 # 3) Compilar solo nuestro paquete
 BUILD=0
