@@ -18,6 +18,7 @@ if str(_ROOT / "03_ADAPTERS" / "robot-udit-physical") not in sys.path:
     sys.path.insert(0, str(_ROOT / "03_ADAPTERS" / "robot-udit-physical"))
 
 from jetson_memory import apply_low_memory_env, low_memory_mode, release_models_after_stt, release_ram  # noqa: E402
+from llm_fallback import LLMFallback  # noqa: E402
 from log_config import apply_log_config, verbose_mode  # noqa: E402
 
 apply_low_memory_env()
@@ -77,6 +78,7 @@ class UditoStandalone:
     self._rag_ready = False
     self._tts = None
     self._ww = None
+    self._llm = LLMFallback()
     self.noise_floor = 0.0
 
   def _tts_engine(self):
@@ -254,10 +256,21 @@ class UditoStandalone:
     progress("[proceso] …")
     result = self._rag_engine().process_query(text)
     answer = (result.get("answer") or "").strip()
+    src = result.get("source", "")
+    if self._llm.handles(src):
+      progress("[llm] pregunta general → llm-engine…")
+      llm_answer = self._llm.reply(text)
+      if llm_answer:
+        self._speak_text(
+          shorten_for_voice(llm_answer),
+          "llm",
+          emotion=emotion_for_rag(src),
+          source="llm",
+        )
+        return True
     if not answer:
       self._speak_key("not_found", "aviso", emotion="sorry")
       return True
-    src = result.get("source", "")
     if src == "fun_joke" or result.get("needs_laugh"):
       speak_joke_with_laugh(
         self._tts_engine(),
@@ -349,6 +362,7 @@ class UditoStandalone:
     return on_partial
 
   def _on_session(self, audio_q: queue.Queue, speaker_lock=None, pre_roll=None) -> None:
+    self._llm.new_conversation()
     ww = self._wakeword()
     chunk_samples = int(ww.SAMPLE_RATE * CHUNK_SEC)
     audio = record_question_vad(
@@ -443,6 +457,8 @@ class UditoStandalone:
       print(f"UDITO standalone ({'bajo consumo' if low_memory_mode() else 'estándar'})\n")
       print(f"Conocimiento: {_KNOWLEDGE / 'responses'}\n")
     self._bootstrap()
+    if self._llm.enabled:
+      progress(f"[llm] respaldo conversacional activo → {self._llm.url}", always=True)
     ww = self._wakeword()
     self.noise_floor, ww_baseline = calibrate_ambient(
       ww, ww.SAMPLE_RATE, float(self.cfg["calibrate_secs"]), self.cfg,
