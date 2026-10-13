@@ -1,0 +1,52 @@
+services:
+  api:
+    build: .
+    image: udito-llm-api:dev
+    env_file: .env
+    environment:
+      UDITO_TIER: server
+      LLM_BASE_URL: http://ollama:11434/v1
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-models:/root/.ollama
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    # GPU passthrough — uncomment when nvidia-container-toolkit is available
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: all
+    #           capabilities: [gpu]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  ollama-models:
