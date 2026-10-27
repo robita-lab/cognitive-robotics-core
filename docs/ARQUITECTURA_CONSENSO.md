@@ -566,14 +566,35 @@ Volumen estimado para 1–2 h al día: C0 + C1 (telemetría, texto, BT, diagnós
 
 ### Nuevas
 
-1. **Danilo:** ¿de acuerdo con el BT como ejecutivo y con py_trees como motor? (D14, D16)
+1. **Danilo:** ¿de acuerdo con el BT como ejecutivo y con py_trees como motor? (D14, D16) → **Respondida:** de acuerdo.
+
+   > **Decisión del equipo (Danilo):** «De acuerdo con la arquitectura híbrida, con el Behavior Tree como ejecutivo y con py_trees + py_trees_ros como motor, con estas condiciones:»
+   >
+   > 1. **De acuerdo con el BT como ejecutivo.** Resuelve las carencias reales del C.C. actual (§4.1): permite hacer varias cosas a la vez (mirar a quien habla mientras el robot habla), interrumpir de forma estructurada y añadir comportamientos sin tocar el código del ejecutivo. Además, el catálogo `intents.yaml` se reaprovecha como selector de órdenes, así que no se pierde el trabajo hecho.
+   > 2. **De acuerdo con py_trees.** Mantiene todo el código propio en Python, como las habilidades y `cognitive`, y el rendimiento está medido con margen amplio (D16.2).
+   > 3. **Migrar por fases sin perder la demo actual** (órdenes por voz + consola). Es el único camino ROS 2 verificado hoy en la Jetson (STT ≈ 1,6 s por frase). Sirve para las presentaciones del laboratorio y como **línea base** para medir que cada fase no empeora la latencia ni la fiabilidad.
+   > 4. **Agrupar STT y TTS en una única habilidad de voz (un proceso).**
+   >    - Comparten el mismo dispositivo de audio (ReSpeaker y altavoz).
+   >    - El robot debe cerrar su micrófono mientras habla para no escucharse a sí mismo; dentro de un mismo proceso se hace sin depender de mensajes entre nodos.
+   >    - Facilita el reflejo de interrupción (*barge-in*) en menos de 200 ms que pide D16.1.
+   >    - Ahorra memoria: un único intérprete de Python en vez de dos, en una Jetson con 8 GB compartidos entre CPU y GPU (riesgo de §4.4).
+   >    - Coincide con el nodo `voice` de la distribución por máquinas (`docs/Arquitectura_3T_UDITO_distribucion_v1.md`).
+   > 5. **Medir la memoria y la CPU de la Jetson en F1, antes de añadir nodos.** Hay evidencia de que los recursos son el cuello de botella: el STT pasó de **13–27 s a 1,6 s** solo con `jetson_clocks`, detener `snapd` y usar 4 núcleos. Con Whisper, Piper, RAG local y un LLM pequeño compartiendo 8 GB (riesgo 6 de §2.2), conviene conocer el consumo real antes de crecer.
+   > 6. **Me ofrezco a llevar la conversión de `udito_cc` al primer árbol y las habilidades de voz con `robita_interfaces`**, por continuidad: conozco ese código, el catálogo de órdenes y su comportamiento probado en la Jetson.
+   > 7. Como primer paso, **separo los borrados de mi rama en un commit `chore`** aparte (F0).
+
 2. Seta de emergencia: ¿quién la monta y **qué corta exactamente**? Debe cortar la potencia de los motores, no enviar un mensaje a ROS.
 3. ¿Espacio libre en el SSD del Mini PC? Holgado para C0/C1; solo importa si se aprueba el audio crudo (D13).
 4. **TI de la universidad:** ¿se permite un túnel WireGuard saliente (UDP) desde la WiFi? ¿Puede el servidor tener IP fija? (D15)
+
+   > **Dato (Danilo):** TI asignó IPs fijas a la Jetson (LAN `10.8.0.132/24`, WiFi `10.8.34.5/23`). La WiFi valida por MAC: hay que enviar la MAC de cada equipo a TI para incluirla en el firewall. Comprobado: la red bloquea el tráfico entre segmentos distintos (un PC en `10.8.40.0/21` no alcanza la Jetson en `10.8.34.0/23`), lo que refuerza D15. Falta preguntar por WireGuard (UDP saliente) y por la IP fija del servidor.
+
 5. ¿Quién inicia las solicitudes al **comité de ética** y al **DPD**, y cuál es el plazo habitual? (D13)
 6. ¿Las sesiones a corto plazo son siempre **supervisadas** (con operador)? Si no, D18 se vuelve urgente.
 
 ---
+
+
 
 ## 8. Referencias
 
