@@ -1,0 +1,152 @@
+# Arquitectura 3T - UDITO · Catálogo de órdenes (intents) del C.C.
+#
+# 3T = tres capas: Deliberativa (Cognitive: piensa QUÉ) · Ejecutiva (C.C. en ROS 2: orquesta CÓMO)
+# · Reactiva (sensores y actuadores). Este archivo es el «contrato» de la capa ejecutiva:
+# qué frases entiende el robot y qué hace con cada una. Sin IA ni RAG: respuesta inmediata.
+#
+# Campos de cada orden:
+#   id       nombre de la intención (lo que viaja por /udito/intent)
+#   label    texto corto que se ve en la consola
+#   phrases  formas de decirla (se comparan sin tildes y con tolerancia a errores del STT)
+#   say      lo que responde por voz (TTS)
+#   face     expresión de la cara (ver udito_face.py)
+#   laugh    true = suena la risa después
+#   special  comportamiento calculado por el C.C. (joke, fact, time, eyes)
+#   body     orden para el CUERPO: se publica en /udito/intent para el orquestador del cuerpo
+#            (cuello / base). El C.C. NO mueve motores: solo emite la intención.
+
+intents:
+  - id: greet
+    label: hola
+    phrases: [hola, hola udito, buenos dias, buenas tardes, buenas noches udito, hey udito]
+    say: "¡Hola! Soy UDITO. ¿Qué quieres que haga?"
+    face: happy
+
+  - id: ask_name
+    label: cómo te llamas
+    phrases: [como te llamas, quien eres, cual es tu nombre, presentate]
+    say: "Me llamo UDITO, el robot social de la universidad UDIT."
+    face: proud
+
+  - id: joke
+    label: cuéntame un chiste
+    phrases: [cuentame un chiste, dime un chiste, un chiste, chiste, hazme reir]
+    special: joke
+    face: happy
+    laugh: true
+
+  - id: laugh
+    label: ríete
+    phrases: [riete, rie, risa, jaja, carcajada]
+    say: ""
+    face: laugh
+    laugh: true
+
+  - id: smile
+    label: sonríe
+    phrases: [sonrie, sonrisa, cara feliz, ponte feliz, cara alegre]
+    say: "¡Así sonrío!"
+    face: happy
+
+  - id: sad
+    label: ponte triste
+    phrases: [ponte triste, cara triste, estas triste, triste]
+    say: "Así me pongo triste."
+    face: sad
+
+  - id: surprised
+    label: sorpréndete
+    phrases: [sorprendete, cara de sorpresa, sorpresa, asombrate]
+    say: "¡Oh! ¡Qué sorpresa!"
+    face: surprised
+
+  - id: wink
+    label: guiña un ojo
+    phrases: [guina un ojo, guinale, guino, guina]
+    say: "¡Te guiño un ojo!"
+    face: wink
+
+  - id: move_eyes
+    label: mueve los ojos
+    phrases: [mueve los ojos, mueve tus ojos, mover los ojos, ojos]
+    special: eyes
+    say: "¿Te gustan mis ojos?"
+    face: happy
+
+  - id: sleep
+    label: duérmete
+    phrases: [duermete, a dormir, descansa, apagate]
+    say: "Buenas noches. Me voy a descansar."
+    face: sleepy
+
+  - id: look_left
+    label: mira a la izquierda
+    phrases: [mira a la izquierda, gira a la izquierda, izquierda]
+    say: "Miro a la izquierda."
+    face: curious
+    body: {name: look, args: {direction: left, degrees: 45}}
+
+  - id: look_right
+    label: mira a la derecha
+    phrases: [mira a la derecha, gira a la derecha, derecha]
+    say: "Miro a la derecha."
+    face: curious
+    body: {name: look, args: {direction: right, degrees: 45}}
+
+  - id: nod
+    label: asiente
+    phrases: [asiente, di que si, mueve la cabeza que si, si con la cabeza]
+    say: "Sí, sí."
+    face: happy
+    body: {name: head_gesture, args: {gesture: nod, times: 2}}
+
+  - id: shake
+    label: niega
+    phrases: [niega, di que no, no con la cabeza, mueve la cabeza que no]
+    say: "No, no."
+    face: neutral
+    body: {name: head_gesture, args: {gesture: shake, times: 2}}
+
+  - id: follow_me
+    label: sígueme
+    phrases: [sigueme, ven conmigo, sigue me, acompaname]
+    say: "¡Te sigo!"
+    face: happy
+    body: {name: follow, args: {target: person}}
+
+  - id: stop
+    label: para / quieto
+    phrases: [para, quieto, detente, stop, alto, parate]
+    say: "Me detengo."
+    face: neutral
+    body: {name: stop, args: {}}
+
+  - id: come_here
+    label: ven aquí
+    phrases: [ven aqui, ven, acercate, ven hacia mi]
+    say: "Voy hacia ti."
+    face: happy
+    body: {name: go_to, args: {target: speaker}}
+
+  - id: turn_around
+    label: da una vuelta
+    phrases: [da una vuelta, gira, date la vuelta, vuelta]
+    say: "¡Doy una vuelta!"
+    face: happy
+    body: {name: rotate, args: {degrees: 360}}
+
+  - id: time
+    label: qué hora es
+    phrases: [que hora es, dime la hora, la hora]
+    special: time
+    face: helpful
+
+  - id: fact
+    label: dato curioso
+    phrases: [dato curioso, cuentame algo curioso, sorprendeme, curiosidad]
+    special: fact
+    face: curious
+
+unknown:
+  say: "No conozco esa orden. Mira la lista en pantalla."
+  face: confused

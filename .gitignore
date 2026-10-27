@@ -33,3 +33,10 @@ data/huggingface/
 
 # Temporales UDITO
 /tmp/udito_speech_out.json
+
+# ROS 2 compilado y archivos locales
+05_ROS2/ros2_ws/build/
+05_ROS2/ros2_ws/install/
+05_ROS2/ros2_ws/log/
+.local-lib/
+.env.bak
