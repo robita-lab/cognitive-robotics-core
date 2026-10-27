@@ -49,4 +49,4 @@ if [[ -x "$SRC/espeak-ng" ]]; then
 fi
 
 echo "==> Piper listo: $(file "$PIPER_BIN")"
-echo "    Prueba: ./scripts/udito/audio-test.sh"
+echo "    Prueba: ./scripts/udito/audio.sh"
