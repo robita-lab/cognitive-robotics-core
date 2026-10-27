@@ -25,7 +25,6 @@ ARCH="$(uname -m)"
 if [[ "$ARCH" != "aarch64" ]]; then
   echo "ERROR: install_onnx_jetson.sh es SOLO para Jetson (aarch64)."
   echo "       Esta máquina es: $ARCH"
-  echo "       En PC de desarrollo usa: ./scripts/setup/install_onnx_pc.sh"
   exit 1
 fi
 

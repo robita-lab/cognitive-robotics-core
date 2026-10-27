@@ -27,7 +27,7 @@ echo "════════════════════════�
 
 if [[ "${ROBITA_CLEANUP_PROJECT:-1}" == "1" ]]; then
   echo "→ Limpieza del árbol del proyecto..."
-  bash "$ROOT/scripts/lib/cleanup-project.sh"
+  [[ -f "$ROOT/scripts/lib/cleanup-project.sh" ]] && bash "$ROOT/scripts/lib/cleanup-project.sh"
 fi
 
 if [[ "${ROBITA_STOP_PIPELINE_PORTS:-1}" == "1" ]]; then
