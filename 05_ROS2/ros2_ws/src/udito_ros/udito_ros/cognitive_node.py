@@ -1,4 +1,4 @@
-"""Arquitectura 3T - UDITO · Capa deliberativa · COGNITIVE (piensa y decide QUÉ decir).
+"""Arquitectura híbrida - UDITO · Capa deliberativa · COGNITIVE (piensa y decide QUÉ decir).
 
 Recibe preguntas del C.C. por /udito/cognitive/query y responde por
 /udito/cognitive/answer. Nunca habla ni mueve nada por sí mismo.

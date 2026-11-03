@@ -1,4 +1,4 @@
-# Arquitectura 3T - UDITO · Catálogo de órdenes (intents) del C.C.
+# Arquitectura híbrida - UDITO · Catálogo de órdenes (intents) del C.C.
 #
 # 3T = tres capas: Deliberativa (Cognitive: piensa QUÉ) · Ejecutiva (C.C. en ROS 2: orquesta CÓMO)
 # · Reactiva (sensores y actuadores). Este archivo es el «contrato» de la capa ejecutiva:

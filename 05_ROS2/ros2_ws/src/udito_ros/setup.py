@@ -19,13 +19,13 @@ setup(
     zip_safe=True,
     maintainer="Danilo Guevara",
     maintainer_email="danilo.guevara@gmail.com",
-    description="Arquitectura 3T - UDITO sobre ROS 2",
+    description="Arquitectura híbrida - UDITO sobre ROS 2",
     license="Apache-2.0",
     entry_points={
         "console_scripts": [
             "stt_node = udito_ros.stt_node:main",
             "tts_node = udito_ros.tts_node:main",
-            "orchestrator_node = udito_ros.orchestrator_node:main",
+            "udito_cc_node = udito_ros.udito_cc_node:main",
             "cognitive_node = udito_ros.cognitive_node:main",
             "console_node = udito_ros.console_node:main",
             "body_example_node = udito_ros.body_example_node:main",

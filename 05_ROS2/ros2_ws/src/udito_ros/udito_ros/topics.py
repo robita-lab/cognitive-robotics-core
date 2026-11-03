@@ -1,4 +1,4 @@
-"""Arquitectura 3T - UDITO · Contrato de topics (el «bus» ROS 2).
+"""Arquitectura híbrida - UDITO · Contrato de topics (el «bus» ROS 2).
 
 Capa reactiva (sensores/actuadores) <-> Capa ejecutiva C.C. <-> Capa deliberativa.
 Todos los mensajes son std_msgs/String con JSON (salvo STT_ENABLE: std_msgs/Bool).
@@ -21,3 +21,4 @@ COG_ANSWER = "/udito/cognitive/answer"  # {"id","text","emotion","source"}
 POWER = "/udito/power"                # Bool: botón ENCENDER / APAGAR
 STT_PTT = "/udito/stt/ptt"            # Bool: «mantén para hablar» (true = grabando)
 CC_LOG = "/udito/cc/log"              # String: qué está haciendo el C.C., paso a paso
+SAY_REQUEST = "/udito/cc/say"         # String JSON {"text","emotion"}: frase escrita por el operador → C.C.

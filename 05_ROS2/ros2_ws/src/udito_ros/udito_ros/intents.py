@@ -1,4 +1,4 @@
-"""Arquitectura 3T - UDITO · Carga y reconocimiento de órdenes (config/intents.yaml).
+"""Arquitectura híbrida - UDITO · Carga y reconocimiento de órdenes (config/intents.yaml).
 
 Lo usan el C.C. (para decidir), el STT (para orientar a Whisper con el
 vocabulario de órdenes) y la consola (para listarlas).
@@ -67,3 +67,29 @@ def vocabulary_prompt(intents: list[dict]) -> str:
     """Frase guía para Whisper: mejora mucho el acierto con órdenes cortas."""
     labels = [it.get("label", "") for it in intents if it.get("label")]
     return "Órdenes a un robot: " + ", ".join(labels) + "."
+
+
+# Expresiones que se pueden escribir como etiqueta en una frase: «[feliz] ¡Hola! [sorpresa] ¿En serio?»
+EMOTIONS = {
+    "neutral": "neutral", "feliz": "happy", "triste": "sad", "sorpresa": "surprised",
+    "pensando": "thinking", "enfadado": "angry", "risa": "laugh", "guiño": "wink",
+    "amor": "love", "dormido": "sleepy", "curioso": "curious", "confuso": "confused",
+    "orgulloso": "proud", "miedo": "scared",
+}
+
+
+def split_emotion_tags(text: str, default: str = "neutral") -> list[tuple[str, str]]:
+    """«[feliz] Hola [sorpresa] ¿qué tal?» → [("happy", "Hola"), ("surprised", "¿qué tal?")]."""
+    import re
+
+    parts = re.split(r"\[([^\]]+)\]", text)
+    out, emo = [], default
+    if parts[0].strip():
+        out.append((emo, parts[0].strip()))
+    for i in range(1, len(parts), 2):
+        tag = norm(parts[i]).replace("guino", "guiño")
+        emo = EMOTIONS.get(tag, EMOTIONS.get(parts[i].strip().lower(), emo))
+        seg = parts[i + 1].strip() if i + 1 < len(parts) else ""
+        if seg or emo == "laugh":
+            out.append((emo, seg))
+    return out

@@ -1,4 +1,4 @@
-"""Arquitectura 3T - UDITO · Capa ejecutiva · C.C. (orquestador central en ROS 2).
+"""Arquitectura híbrida - UDITO · Capa ejecutiva · C.C. (orquestador central en ROS 2).
 
 Es el «jefe de proyecto»: recibe lo que oye el robot, reconoce la orden
 (config/intents.yaml) y reparte el trabajo:
@@ -52,6 +52,7 @@ class Orchestrator(Node):
         self.create_subscription(String, topics.TTS_DONE, self._on_done, 10)
         self.create_subscription(String, topics.COG_ANSWER, self._on_answer, 10)
         self.create_subscription(Bool, topics.POWER, self._on_power, 10)
+        self.create_subscription(String, topics.SAY_REQUEST, self._on_operator_say, 10)
 
         self._pending: set[str] = set()
         self._lock = threading.Lock()
@@ -96,6 +97,22 @@ class Orchestrator(Node):
         self.log(f"→ {topics.INTENT}  {json.dumps(payload['name'])} {json.dumps(payload['args'], ensure_ascii=False)}")
 
     # ---------- encendido ----------
+    def _on_operator_say(self, msg: String) -> None:
+        """Frase escrita en la consola: el C.C. la reparte a voz y cara, como cualquier orden."""
+        try:
+            d = json.loads(msg.data)
+        except json.JSONDecodeError:
+            d = {"text": msg.data}
+        if not self.powered:
+            self.log("(apagado) ignoro la frase del operador — pulsa ENCENDER")
+            return
+        segments = I.split_emotion_tags(str(d.get("text", "")), str(d.get("emotion", "neutral")))
+        self.log(f"operador → {len(segments)} frase(s) con expresión")
+        for i, (emo, txt) in enumerate(segments):
+            if i == 0:
+                self.face(emo)
+            self.say(txt, emo, laugh=(emo == "laugh" and not txt), label="operador")
+
     def _on_power(self, msg: Bool) -> None:
         self.powered = bool(msg.data)
         if self.powered:

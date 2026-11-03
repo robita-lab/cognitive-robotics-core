@@ -1,4 +1,4 @@
-"""Arquitectura 3T - UDITO · Capa reactiva · Actuador VOZ (TTS Piper).
+"""Arquitectura híbrida - UDITO · Capa reactiva · Actuador VOZ (TTS Piper).
 
 Solo obedece al C.C.: escucha /udito/tts/say, habla, y avisa en /udito/tts/done.
 Publica la emoción en /udito/speech_out para que el rostro se sincronice.
@@ -54,6 +54,30 @@ class TtsNode(Node):
         threading.Thread(target=self._worker, daemon=True).start()
         self.get_logger().info(f"TTS listo — escuchando {topics.TTS_SAY}")
 
+    @staticmethod
+    def _envelope(wav: bytes, fps: int = 20) -> list[float]:
+        """Volumen del audio cada 1/fps s (0-1): la cara abre la boca al ritmo real de la voz."""
+        import io
+        import wave as wv
+
+        import numpy as np
+
+        try:
+            with wv.open(io.BytesIO(wav), "rb") as r:
+                rate, ch, sw = r.getframerate(), r.getnchannels(), r.getsampwidth()
+                frames = r.readframes(r.getnframes())
+            if sw != 2:
+                return []
+            a = np.frombuffer(frames, dtype=np.int16).astype(np.float32)
+            if ch > 1:
+                a = a.reshape(-1, ch).mean(axis=1)
+            step = max(1, rate // fps)
+            rms = [float(np.sqrt(np.mean(a[i:i + step] ** 2))) for i in range(0, len(a), step)]
+            peak = max(rms) or 1.0
+            return [round(min(1.0, v / (peak * 0.7)), 2) for v in rms]
+        except Exception:  # noqa: BLE001
+            return []
+
     def _play(self, wav: bytes) -> None:
         self._play_raw(self._audio.scale_wav(wav, self._volume))
 
@@ -77,7 +101,6 @@ class TtsNode(Node):
             req_id = str(data.get("id", ""))
             text = self._speech.normalize_for_speech(str(data.get("text", "")))
             emotion = str(data.get("emotion", "neutral"))
-            self._pub(self.pub_state, {"state": "speaking", "id": req_id})
             try:
                 if text:
                     self.get_logger().info(f"[hablar] ({emotion}) {text}")
@@ -86,7 +109,10 @@ class TtsNode(Node):
                     event.label = str(data.get("label", ""))
                     self._pub(self.pub_face, event.to_dict())
                     if wav:
+                        self._pub(self.pub_state, {"state": "speaking", "id": req_id,
+                                                   "env": self._envelope(wav), "fps": 20})
                         self._play(wav)
+                        self._pub(self.pub_state, {"state": "idle", "id": req_id})
                 if data.get("laugh"):
                     self._pub(
                         self.pub_face,

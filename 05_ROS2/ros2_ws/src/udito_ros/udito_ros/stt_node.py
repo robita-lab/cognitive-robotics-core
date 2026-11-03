@@ -1,4 +1,4 @@
-"""Arquitectura 3T - UDITO · Capa reactiva · Sensor OÍDO (STT Whisper).
+"""Arquitectura híbrida - UDITO · Capa reactiva · Sensor OÍDO (STT Whisper).
 
 Dos modos (parámetro `mode`):
   - ptt (por defecto): «mantén para hablar». Graba solo mientras /udito/stt/ptt = true

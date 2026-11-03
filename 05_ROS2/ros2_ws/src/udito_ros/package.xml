@@ -3,7 +3,7 @@
 <package format="3">
   <name>udito_ros</name>
   <version>0.1.0</version>
-  <description>Arquitectura 3T - UDITO: voz (STT/TTS), C.C. orquestador y Cognitive sobre ROS 2.</description>
+  <description>Arquitectura híbrida - UDITO: voz (STT/TTS), C.C. orquestador y Cognitive sobre ROS 2.</description>
   <maintainer email="danilo.guevara@gmail.com">Danilo Guevara</maintainer>
   <license>Apache-2.0</license>
 

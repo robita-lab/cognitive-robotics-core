@@ -1,4 +1,4 @@
-"""Arquitectura 3T - UDITO · EJEMPLO para el responsable del orquestador del CUERPO.
+"""Arquitectura híbrida - UDITO · EJEMPLO para el responsable del orquestador del CUERPO.
 
 Este nodo NO mueve motores: muestra cómo recibir las órdenes del C.C. y dónde
 conectar cada una con el cuerpo real (cuello = head_package, base = Nav2 / robot_base_nav).
