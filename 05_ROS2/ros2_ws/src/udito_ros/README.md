@@ -1,49 +1,83 @@
-# Arquitectura 3T - UDITO
+# Arquitectura híbrida - UDITO · Paquete `udito_ros`
 
-## ¿Qué es 3T?
+> **Arquitectura híbrida** = evolución del modelo 3T acordada en el consenso de ROBITA-lab (D14).
+> Conserva la separación deliberativa / ejecutiva / reactiva y añade **habilidades** con contrato
+> uniforme, un **ejecutivo en Behavior Tree** (py_trees, fase F2) y **cuatro planos transversales**
+> (seguridad, modelo del mundo, modos y salud, observabilidad).
+> Diagrama: [`docs/Arquitectura_hibrida_UDITO_v2.png`](../../../../docs/Arquitectura_hibrida_UDITO_v2.png)
 
-**3T** (*Three-Tier*, «tres capas») es una arquitectura clásica de robótica que separa al robot en tres niveles, cada uno con una responsabilidad:
+| Capa | En este paquete | Analogía de empresa |
+|------|-----------------|---------------------|
+| 3 · Deliberativa | `udito_cognitive` (desactivado en el módulo 1) | Dirección: decide qué decir |
+| 2 · Ejecutiva | `udito_cc` — C.C. de UDITO (pasa a Behavior Tree en F2) | Jefe de proyecto: decide cómo y cuándo |
+| 1 · Habilidades | `udito_stt`, `udito_tts` (se unirán en una sola habilidad de voz), consola | Especialistas: cada uno sabe hacer una cosa |
+| 0 · Plataforma | ReSpeaker, altavoz, pantalla (instalación en `03_ADAPTERS/.../Jetson_Orin_Nano`) | Instalaciones y máquinas |
 
-| Capa | En UDITO | Pregunta que responde | Analogía de empresa |
-|------|----------|----------------------|---------------------|
-| **Deliberativa** | Cognitive (RAG + LLM + memoria) | **¿QUÉ** hago o digo? | Dirección: decide la estrategia |
-| **Ejecutiva / secuenciadora** | C.C. sobre **ROS 2** (orquestador) | **¿CÓMO** y en qué orden? | Jefe de proyecto: reparte y coordina |
-| **Reactiva / control** | Sensores y actuadores (STT, TTS, rostro, cuello, base) | Ejecuta y percibe | Equipo operativo |
-
-Regla: **las órdenes bajan** (Cognitive → C.C. → actuadores) y **los datos suben** (sensores → C.C. → Cognitive). Ningún actuador recibe órdenes de otro sitio: **todo pasa por ROS 2**, que funciona como un bus de mensajes (publicación/suscripción), igual que un *Enterprise Service Bus*.
-
-**Etapa actual (módulo 1):** órdenes simples por voz, sin RAG. El robot oye (STT), el C.C. reconoce la orden de un catálogo de 20 (`config/intents.yaml`) y reparte: voz (TTS), cara y, si toca, una orden al cuerpo (`/udito/intent`).
+**Etapa actual (módulo 1):** órdenes simples por voz, sin RAG. El robot oye (STT), el C.C. reconoce la
+orden de un catálogo de 20 (`config/intents.yaml`) y reparte: voz (TTS), cara y, si toca, una orden al
+cuerpo (`/udito/intent`). El operador puede escribir frases con expresión: `[feliz] ¡Hola! [sorpresa] ¿En serio?`.
 
 ---
 
 ## Cómo arrancar
 
+| Forma | Comando |
+|-------|---------|
+| **Nativa ROS 2** (recomendada) | `ros2 launch udito_ros udito_voice.launch.py` |
+| Atajo | `robot` — cierra instancias anteriores, compila si hace falta y lanza lo mismo |
+
+La primera vez (o tras cambiar `setup.py`):
+
 ```bash
-cd /opt/robita-lab
-./scripts/ros2/udito-ros.sh --build    # la primera vez (o tras cambios en setup.py)
-./scripts/ros2/udito-ros.sh            # las siguientes
+cd /opt/cognitive-robotics-core/05_ROS2/ros2_ws && colcon build --packages-select udito_ros --symlink-install
 ```
 
-Se abre la **Consola UDITO**: pulsa **ENCENDER**, mantén **MANTÉN PARA HABLAR** (o la barra espaciadora), di la orden y suelta. También puedes hacer clic en cualquier orden de la lista.
+El lanzador prepara el entorno solo: lee `.env`, añade el `.venv` (Whisper, Piper, RAG) y, en la Jetson,
+las variables de bajo consumo. **Las variables que ya tengas en la terminal mandan.** Los ajustes de
+hardware (frecuencias, ReSpeaker, snap) se aplican al iniciar Ubuntu, no aquí.
 
-Opciones: `whisper:=tiny|base|small` (velocidad vs. precisión, por defecto base) · `stt_mode:=vad` (escucha continua) · `mic:=false` · `console:=false` · `body_example:=false` · `cognitive:=true rag:=true` · `face:=true` (cara en ventana aparte).
+### Opciones del lanzador
 
-Audio (micrófono, altavoz, volumen): `./scripts/udito/audio.sh`.
+| Opción | Valores | Por defecto | Efecto |
+|--------|---------|-------------|--------|
+| `whisper` | `tiny` · `base` · `small` | `base` | Velocidad frente a precisión del STT |
+| `stt_mode` | `ptt` · `vad` | `ptt` | Mantén para hablar / escucha continua |
+| `mic` | `true` · `false` | `true` | Sin micrófono (pruebas por texto) |
+| `console` | `true` · `false` | `true` | Consola del operador |
+| `body_example` | `true` · `false` | `true` | Nodo de ejemplo del cuerpo |
+| `cognitive` · `rag` | `true` · `false` | `false` | Capa deliberativa y RAG completo |
+| `face` | `true` · `false` | `false` | Cara en ventana aparte (pantalla física) |
+
+Ejemplo: `ros2 launch udito_ros udito_voice.launch.py whisper:=tiny mic:=false`
+
+### Variables de entorno (archivo `.env` de la raíz)
+
+| Variable | Para qué |
+|----------|----------|
+| `ROBITA_AUDIO_INPUT` · `ROBITA_AUDIO_OUTPUT` | Micrófono y altavoz (los guarda la pantalla de audio) |
+| `ROBITA_AUDIO_VOLUME` | Volumen de la voz (0–100) |
+| `UDITO_INTENTS` | Otro catálogo de órdenes en vez de `config/intents.yaml` |
+| `ROBITA_TTS_CONFIG` | Configuración de la voz (Piper) |
+| `ROBITA_RAG_CONFIG` · `HF_HOME` | RAG y carpeta de modelos |
+| `ROBITA_ROOT` | Raíz del repo (por defecto `/opt/cognitive-robotics-core`) |
+
+Pantalla de audio: `./scripts/udito/audio.sh`.
 
 ---
 
 ## Nodos
 
-| Nodo | Capa | Hace |
-|------|------|------|
-| `udito_stt` | Reactiva (sensor) | Micrófono → Whisper → texto. Modo «mantén para hablar» |
-| `udito_tts` | Reactiva (actuador) | Recibe orden → Piper habla → avisa al terminar |
-| `udito_cc` | Ejecutiva (C.C.) | Reconoce la orden y reparte: voz, cara, cuerpo |
-| `udito_body_example` | Ejemplo cuerpo | Muestra cómo recibir `/udito/intent` y dónde conectar cuello y base |
-| `udito_console` | Operador | Cara, ENCENDER, hablar, lista de órdenes y log en vivo |
-| `udito_cognitive` | Deliberativa | (Desactivado en esta etapa) preguntas abiertas con RAG |
+| Nodo (ejecutable) | Capa | Hace |
+|-------------------|------|------|
+| `udito_stt` (`stt_node`) | 1 · Habilidad | Micrófono → Whisper → texto. Modo «mantén para hablar» |
+| `udito_tts` (`tts_node`) | 1 · Habilidad | Habla con Piper, boca sincronizada con el volumen del audio, avisa al terminar |
+| `udito_cc` (`udito_cc_node`) | 2 · Ejecutiva | **C.C. de UDITO**: reconoce la orden y reparte voz, cara y cuerpo |
+| `udito_body_example` (`body_example_node`) | Ejemplo | Cómo recibir `/udito/intent` y dónde conectar cuello y base |
+| `udito_console` (`console_node`) | Operador | Robot dibujado, ENCENDER, hablar, órdenes, «Haz que diga» y log |
+| `udito_cognitive` (`cognitive_node`) | 3 · Deliberativa | (Desactivado) preguntas abiertas con RAG |
 
-Los motores **no se duplican**: los nodos importan Whisper, Piper y RAG desde `01_SERVICES/`.
+Los motores **no se duplican**: los nodos importan Whisper, Piper y RAG desde `01_SERVICES/`, y los
+módulos de voz, rostro y audio desde `05_ROS2/udito_modulos_robot/`.
 
 ## Flujo de una orden («sígueme»)
 
@@ -57,7 +91,10 @@ Los motores **no se duplican**: los nodos importan Whisper, Piper y RAG desde `0
    orquestador del CUERPO (Nav2)              cara (pantalla)                 udito_tts (altavoz)
 ```
 
-## Contrato de topics
+## Contrato de topics (módulo 1)
+
+Hoy son `std_msgs` con JSON. En la fase F1 pasan a mensajes tipados de `robita_interfaces`
+(`Utterance`, `TurnTrace` y la acción `Think`), según el consenso (D2, D3).
 
 | Topic | Tipo | De → A |
 |-------|------|--------|
@@ -65,10 +102,11 @@ Los motores **no se duplican**: los nodos importan Whisper, Piper y RAG desde `0
 | `/udito/stt/ptt` | Bool | Consola → STT (mantén para hablar) |
 | `/udito/stt/text` | String | STT (o clic en consola) → C.C. |
 | `/udito/stt/enable` | Bool | C.C. → STT (cierra el micro mientras habla) |
+| `/udito/cc/say` | String JSON `{text,emotion}` | Consola («Haz que diga») → C.C. |
 | `/udito/tts/say` | String JSON `{id,text,emotion,laugh}` | C.C. → TTS |
 | `/udito/tts/done` | String JSON `{id}` | TTS → C.C. |
 | `/udito/speech_out` | String JSON `{emotion,...}` | C.C./TTS → cara |
-| `/udito/state` | String JSON `{state, stt_sec}` | STT/TTS → consola/cara |
+| `/udito/state` | String JSON `{state, env, fps}` | STT/TTS → consola/cara |
 | `/udito/intent` | String JSON (ver abajo) | **C.C. → orquestador del cuerpo** |
 | `/udito/cc/log` | String | C.C. → consola (qué hace, paso a paso) |
 | `/udito/cognitive/query` · `/answer` | String JSON | C.C. ↔ Cognitive (desactivado) |
@@ -117,4 +155,4 @@ ros2 topic pub --once /udito/stt/text std_msgs/String "{data: sigueme}"  # termi
 
 1. Añade un bloque en `config/intents.yaml` (`id`, `label`, `phrases`, `say`, `face` y, si mueve el cuerpo, `body`).
 2. Si tiene `body`, añade su `name` en la tabla de despacho del orquestador del cuerpo.
-3. Reinicia `./scripts/ros2/udito-ros.sh`. No hace falta tocar código del C.C.
+3. Reinicia con `robot` (o `ros2 launch udito_ros udito_voice.launch.py`). No hace falta tocar código del C.C.

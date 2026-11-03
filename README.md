@@ -1,189 +1,126 @@
-# Arquitectura 3T - UDITO
+# Arquitectura híbrida - UDITO
 
 Asistente por voz del robot social **UDITO** (ROBITA-lab, UDIT) integrado en **ROS 2 Humble**. Rama: `feature/ros2-voice-orchestrator`.
 
----
-
-## 1. ¿Qué es 3T?
-
-**3T** (*Three-Tier*, «tres capas») es una arquitectura clásica de robótica que separa al robot en tres niveles, cada uno con una única responsabilidad:
-
-| Capa | En UDITO | Pregunta que responde | Analogía de empresa |
-|------|----------|----------------------|---------------------|
-| **Deliberativa** | `cognitive` (RAG + LLM + memoria) | **¿QUÉ** hago o digo? | Dirección: decide la estrategia |
-| **Ejecutiva** | `cc` — orquestador central en **ROS 2** | **¿CÓMO** y en qué orden? | Jefe de proyecto: reparte y coordina |
-| **Reactiva** | voz, cara, cuello, base (sensores y actuadores) | Percibe y ejecuta | Equipo operativo |
-
-**Reglas de la arquitectura**
-
-- Las **órdenes bajan** (cognitive → cc → actuadores) y los **datos suben** (sensores → cc → cognitive).
-- **Solo el `cc` da órdenes.** Ningún actuador recibe órdenes de otro nodo.
-- **Todo pasa por ROS 2**, que funciona como un bus de mensajes de publicación/suscripción (equivalente a un *Enterprise Service Bus*).
-
-### Conceptos ROS 2
-
-| Concepto | Qué es | Analogía |
-|----------|--------|----------|
-| **Nodo** | Programa independiente con una sola responsabilidad | Un empleado con un puesto |
-| **Topic** | Canal de mensajes con nombre (existe solo en ejecución) | Un canal de Teams |
-| **Publisher** | Nodo que escribe en un topic | Quien publica en el canal |
-| **Subscriber** | Nodo que lee un topic | Quien sigue el canal |
+![Arquitectura híbrida - UDITO](docs/Arquitectura_hibrida_UDITO_v2.png)
 
 ---
 
-## 2. Qué incluye esta versión (módulo 1)
+## 1. ¿Qué es la arquitectura híbrida?
 
-Órdenes simples por voz, **sin RAG**, con respuesta inmediata:
+Es la evolución del modelo **3T** (*Three-Tier*: deliberativa, ejecutiva y reactiva) acordada en el
+documento de consenso del equipo (`docs/ARQUITECTURA_CONSENSO.md`, rama `feature/architecture-consensus`, D14).
+Conserva la idea de capas y añade lo que al 3T le faltaba: comportamiento interrumpible y concurrente,
+seguridad impuesta por construcción, modos de funcionamiento y trazas para evaluar.
 
-- **Oído (STT):** Whisper, modo «mantén para hablar» (~1,6 s por frase en la Jetson).
-- **Voz (TTS):** Piper, con emociones, risa y control de volumen.
-- **Orquestador (C.C.):** reconoce 20 órdenes de `config/intents.yaml` y reparte: voz, cara y cuerpo.
-- **Consola del operador:** cara animada, botón ENCENDER, botón HABLAR, lista de órdenes y log en vivo.
-- **Pantalla de audio:** elegir micrófono y altavoz, probar y ajustar volumen.
-- **Ejemplo para el cuerpo:** nodo de referencia que recibe las órdenes de movimiento.
+**Cuatro capas** (las órdenes bajan, los datos suben):
 
-Los motores de IA (`01_SERVICES/`) **no se duplican**: los nodos ROS 2 los importan. El asistente sigue funcionando sin ROS 2 en otros dispositivos.
+| Capa | En UDITO | Pregunta | Analogía de empresa |
+|------|----------|----------|---------------------|
+| **3 · Deliberativa** | `cognitive`: enrutador, RAG local (Jetson) y RAG + LLM grande (servidor), memoria de conversación | **¿QUÉ** digo o propongo? | Dirección |
+| **2 · Ejecutiva** | Behavior Tree con `py_trees_ros` en el MiniPC. Hoy: C.C. `udito_cc` | **¿CÓMO** y **CUÁNDO**? | Jefe de proyecto |
+| **1 · Habilidades** | Voz (STT + TTS), rostro, percepción, mirar y gestos, navegar | Saben hacer **una** cosa | Especialistas |
+| **0 · Plataforma** | Arduinos, lidar, ReSpeaker, pantalla | Hardware y firmware | Instalaciones |
 
----
+**Cuatro planos transversales** (funcionan aunque falle el comportamiento, `cognitive` o la red):
+**A** seguridad (`twist_mux`, `collision_monitor`, seta de emergencia) · **B** modelo del mundo (ROS4HRI) ·
+**C** modos y salud (COMPLETO / LOCAL / DEGRADADO / SEGURO) · **D** observabilidad (trazas, rosbag2).
 
-## 3. Arquitectura
+**Reglas:** una sola fuente de órdenes por actuador · la seguridad no depende del comportamiento ·
+el deliberativo propone y el ejecutivo dispone · contratos tipados en `robita_interfaces` · todo lo nuestro en Python.
 
-### Distribución actual (desarrollo)
-
-Todo corre en la **Jetson Orin Nano**.
-
-### Distribución objetivo
-
-| Máquina | Nodo | Capa | Controla |
-|---------|------|------|----------|
-| Jetson | `voice` | Reactiva | STT + TTS (ReSpeaker + altavoz) |
-| Jetson | `face` | Reactiva | Pantalla (boca y emociones) |
-| Servidor | `cognitive` | Deliberativa | RAG + LLM |
-| Mini PC | `cc` | Ejecutiva | Orquestador |
-| Mini PC | `head` | Reactiva | Cuello (2 servos) + ojos (2 matrices LED) — Arduino cuello |
-| Mini PC | `base` | Reactiva | Ruedas + lidar + Nav2 — Arduino ruedas |
-
-Detalle completo, tabla de topics objetivo y decisiones pendientes: [`docs/Arquitectura_3T_UDITO_distribucion_v1.md`](docs/Arquitectura_3T_UDITO_distribucion_v1.md).
-
-### Flujo de una orden («sígueme»)
-
-```
-[micrófono] → udito_stt ──/udito/stt/text «sígueme»──▶ udito_cc
-                                                   │ reconoce: follow_me (intents.yaml)
-             ┌─────────────────────────────────────┼──────────────────────────────┐
-             ▼                                     ▼                              ▼
-   /udito/intent {follow}              /udito/speech_out {happy}       /udito/tts/say «¡Te sigo!»
-             ▼                                     ▼                              ▼
-   orquestador del cuerpo                    cara (pantalla)                udito_tts (altavoz)
-```
+| Concepto ROS 2 | Qué es | Analogía |
+|----------------|--------|----------|
+| **Nodo** | Programa con una sola responsabilidad | Un empleado con un puesto |
+| **Topic** | Canal de mensajes con nombre | Un canal de Teams |
+| **Acción** | Encargo largo que informa de su avance y se puede cancelar | Un pedido con seguimiento |
+| **Lanzador** (`ros2 launch`) | Arranca varios nodos con sus opciones | El turno de apertura |
 
 ---
 
-## 4. Estructura de archivos
+## 2. Estructura del repositorio
+
+| Carpeta | Qué contiene |
+|---------|--------------|
+| `01_SERVICES/` | **Motores** de IA, sin lógica del robot: `stt-engine` (Whisper), `tts-engine` (Piper), `rag-engine` |
+| `02_AGENTS_FACTORY/` | Agentes |
+| `03_ADAPTERS/` | **Instalación y configuración** de cada dispositivo que usa UDITO. Sin código ([README](03_ADAPTERS/README.md)) |
+| `04_KNOWLEDGE_CORE/` | **Conocimiento**: documentos, índices, grafos y respuestas fijas |
+| `05_ROS2/` | **Todo el código de funcionamiento** del robot: paquete `udito_ros` y `udito_modulos_robot` |
+| `docs/` | Arquitectura |
+| `scripts/` | Atajos de instalación y lanzamiento (el robot también arranca sin ellos) |
 
 ```
 cognitive-robotics-core/
-├── 01_SERVICES/                     # Motores de IA (sin cambios de lógica)
-│   ├── stt-engine/                  # Whisper
-│   ├── tts-engine/config/tts_config.json   # ← voz del robot
-│   └── rag-engine/                  # RAG (no usado en módulo 1)
-├── 03_ADAPTERS/robot-udit-physical/
-│   └── udito_audio.py               # Pantalla de audio
-├── 04_KNOWLEDGE_CORE/responses/     # Chistes, datos curiosos, expresiones
-├── 05_ROS2/ros2_ws/src/udito_ros/   # ← Paquete ROS 2 de UDITO
-│   ├── config/intents.yaml          # ← Las 20 órdenes
-│   ├── launch/udito_voice.launch.py
-│   └── udito_ros/
-│       ├── topics.py                # Nombres de todos los topics
-│       ├── stt_node.py              # Oído
-│       ├── tts_node.py              # Voz
-│       ├── orchestrator_node.py     # C.C.
-│       ├── console_node.py          # Consola del operador
-│       ├── body_example_node.py     # Ejemplo para el cuerpo
-│       └── cognitive_node.py        # RAG (desactivado)
-├── docs/                            # Documentación de arquitectura
-└── scripts/
-    ├── ros2/udito-ros.sh            # ← Arranque
-    ├── udito/audio.sh               # ← Pantalla de audio
-    └── setup/ros2-humble.sh         # Instalador ROS 2 (Ubuntu 22.04)
+├── 03_ADAPTERS/UDITO_ROBOT_SOCIAL/Dispositivos/
+│   ├── Jetson_Orin_Nano/      # arranque/ (hardware al iniciar Ubuntu) · entorno_ros2/ · COMPONENTES.md
+│   ├── MiniPC/                # ejecutivo BT, Nav2, seguridad, grabación
+│   ├── Arduino_Ruedas/        # firmware/ de la base
+│   ├── Arduino_Cuello/        # cuello y ojos
+│   ├── Servidor_Laboratorio/  # LLM grande y RAG completo
+│   └── Raspberry/             # reservado
+├── 05_ROS2/
+│   ├── udito_modulos_robot/   # voz, rostro y audio (librería de las habilidades)
+│   └── ros2_ws/src/udito_ros/ # paquete ROS 2 de UDITO
+│       ├── config/intents.yaml        # las 20 órdenes
+│       ├── launch/udito_voice.launch.py
+│       └── udito_ros/  udito_cc_node.py · stt_node.py · tts_node.py · console_node.py · …
+└── scripts/ros2/udito-ros.sh  # atajo `robot`
 ```
 
 ---
 
-## 5. Instalación
+## 3. Instalación en la Jetson
 
-### Jetson Orin Nano (Ubuntu 22.04, JetPack 6)
+Paso a paso en [`03_ADAPTERS/UDITO_ROBOT_SOCIAL/Dispositivos/Jetson_Orin_Nano/README.md`](03_ADAPTERS/UDITO_ROBOT_SOCIAL/Dispositivos/Jetson_Orin_Nano/README.md).
+Ruta del repo: **`/opt/cognitive-robotics-core`**.
 
-```bash
-git clone -b feature/ros2-voice-orchestrator https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
-cd /opt/robita-lab
-./scripts/setup/ros2-humble.sh     # ROS 2 Humble (si no está instalado)
-./scripts/setup/jetson.sh          # Motores de IA (.venv)
-./scripts/setup/piper-jetson.sh    # Binario de voz para ARM
-./scripts/setup/models-download.sh # Modelos (primera vez, necesita internet)
-```
-
-### Otro PC con Ubuntu 22.04
-
-Mismos pasos, excepto `piper-jetson.sh`.
+Los ajustes de hardware (frecuencias al máximo, ReSpeaker reservado para el robot, snap en pausa) se aplican
+**solos al iniciar Ubuntu**; no hace falta ejecutarlos antes de arrancar el robot.
 
 ---
 
-## 6. Cómo usar
+## 4. Cómo usar
 
-### 6.1 Rendimiento de la Jetson (tras cada reinicio)
+### 4.1 Configurar el audio (una vez)
 
 ```bash
-sudo jetson_clocks && sudo systemctl stop snapd snapd.socket
+cd /opt/cognitive-robotics-core && ./scripts/udito/audio.sh
 ```
 
-Sin esto, el STT puede pasar de ~1,6 s a más de 20 s.
-
-### 6.2 Configurar el audio (una vez)
+### 4.2 Arrancar el robot
 
 ```bash
-cd /opt/robita-lab && ./scripts/udito/audio.sh
+ros2 launch udito_ros udito_voice.launch.py      # nativo ROS 2
+robot                                           # atajo: cierra instancias anteriores y compila si hace falta
 ```
 
-Elige micrófono y altavoz, ajusta el volumen, prueba y pulsa **Guardar selección**.
+En la **Consola UDITO**: pulsa **ENCENDER**, mantén **MANTÉN PARA HABLAR** (o la barra espaciadora), di la orden y suelta.
+También puedes hacer clic en una orden o escribir en **«Haz que diga»** con expresiones: `[feliz] ¡Hola! [sorpresa] ¿En serio?`.
 
-### 6.3 Arrancar el robot
+Opciones del lanzador y variables de entorno: [README de `udito_ros`](05_ROS2/ros2_ws/src/udito_ros/README.md).
 
-```bash
-cd /opt/robita-lab && ./scripts/ros2/udito-ros.sh --build   # primera vez o tras cambios
-cd /opt/robita-lab && ./scripts/ros2/udito-ros.sh           # siguientes veces
-```
-
-En la **Consola UDITO**:
-
-1. Pulsa **ENCENDER**.
-2. Mantén **MANTÉN PARA HABLAR** (o la barra espaciadora), di la orden y suelta.
-3. También puedes hacer clic en cualquier orden de la lista.
-
-**Opciones de arranque**
-
-| Opción | Efecto |
-|--------|--------|
-| `whisper:=tiny\|base\|small` | Velocidad frente a precisión del STT (por defecto `base`) |
-| `stt_mode:=vad` | Escucha continua en vez de «mantén para hablar» |
-| `mic:=false` | Sin micrófono (pruebas por texto) |
-| `console:=false` | Sin consola |
-| `body_example:=false` | Sin el nodo de ejemplo del cuerpo |
-| `cognitive:=true rag:=true` | Activa el RAG para preguntas abiertas |
-
-### 6.4 Probar sin voz
+### 4.3 Probar sin voz
 
 ```bash
-source /opt/ros/humble/setup.bash
 ros2 topic pub --once /udito/stt/text std_msgs/String "{data: sigueme}"
 ros2 topic echo /udito/intent
-ros2 node list      # nodos vivos
-ros2 topic list     # topics vivos
 ```
 
 ---
 
-## 7. Órdenes disponibles
+## 5. Estado y siguientes fases (consenso §6)
+
+| Fase | Contenido | Estado |
+|------|-----------|--------|
+| Módulo 1 | Órdenes por voz, consola, frases con expresión, boca sincronizada | ✅ Funciona en la Jetson (STT ≈ 1,5 s) |
+| F1 | `robita_interfaces` (`Utterance`, `TurnTrace`, `Think`), seta de emergencia, `twist_mux`, medir memoria | Pendiente |
+| F2 | Ejecutivo `py_trees_ros` (el catálogo `intents.yaml` como selector) y `cognitive` con `Think` | Pendiente |
+| F3–F5 | Datos y red (WireGuard, MCAP), modelo del mundo y modos, Jazzy | Pendiente |
+
+---
+
+## 6. Órdenes disponibles
 
 | # | Orden | Hace | Cuerpo |
 |---|-------|------|--------|
@@ -212,39 +149,12 @@ ros2 topic list     # topics vivos
 
 1. Añade un bloque en `05_ROS2/ros2_ws/src/udito_ros/config/intents.yaml` (`id`, `label`, `phrases`, `say`, `face` y, si mueve el cuerpo, `body`).
 2. Si tiene `body`, añade su `name` al orquestador del cuerpo.
-3. Reinicia con `./scripts/ros2/udito-ros.sh --build`. No hace falta tocar código.
+3. Reinicia con ``robot --build``. No hace falta tocar código.
 
 ---
 
-## 8. Topics (implementación actual)
 
-| Topic | Tipo | De → A |
-|-------|------|--------|
-| `/udito/power` | Bool | Consola → C.C. |
-| `/udito/stt/ptt` | Bool | Consola → STT |
-| `/udito/stt/text` | String | STT → C.C. |
-| `/udito/stt/enable` | Bool | C.C. → STT |
-| `/udito/tts/say` | String JSON `{id,text,emotion,laugh}` | C.C. → TTS |
-| `/udito/tts/done` | String JSON `{id}` | TTS → C.C. |
-| `/udito/speech_out` | String JSON `{emotion}` | C.C./TTS → cara |
-| `/udito/state` | String JSON `{state, stt_sec}` | STT/TTS → consola |
-| `/udito/intent` | String JSON `{name,args,intent,text}` | **C.C. → cuerpo** |
-| `/udito/cc/log` | String | C.C. → consola |
-| `/udito/cognitive/query` · `/answer` | String JSON | C.C. ↔ Cognitive |
-
-### Para el responsable del cuerpo
-
-El C.C. **no mueve motores**: publica la intención en `/udito/intent` y el orquestador del cuerpo la ejecuta.
-
-```json
-{"name": "follow", "args": {"target": "person"}, "intent": "follow_me", "text": "sígueme", "source": "udito_cc", "stamp": 1791238809.57}
-```
-
-Ejemplo listo para copiar: `05_ROS2/ros2_ws/src/udito_ros/udito_ros/body_example_node.py`.
-
----
-
-## 9. Voz del robot
+## 7. Voz del robot
 
 Archivo: `01_SERVICES/tts-engine/config/tts_config.json`
 
@@ -258,7 +168,8 @@ Archivo: `01_SERVICES/tts-engine/config/tts_config.json`
 
 ---
 
-## 10. Red y acceso remoto
+
+## 8. Red y acceso remoto
 
 | Interfaz | IP fija | Uso |
 |----------|---------|-----|
@@ -273,19 +184,21 @@ NoMachine: puerto `4000`. La red de la universidad bloquea el tráfico entre seg
 
 ---
 
-## 11. Problemas frecuentes
+
+## 9. Problemas frecuentes
 
 | Síntoma | Causa | Solución |
 |---------|-------|----------|
-| STT muy lento (>10 s) | Jetson en bajo consumo o `snapd` activo | Apartado 6.1 |
-| No encuentra el micrófono `pulse` | Sesión gráfica como root | Elegir dispositivo ALSA `[A]` en `audio.sh` |
+| STT muy lento (>10 s) | El servicio de arranque no está activo | `systemctl is-active udito-jetson-arranque.service` (ver `Jetson_Orin_Nano/arranque`) |
+| Sin sonido, «Device or resource busy» | PulseAudio tiene el ReSpeaker | Regla udev de `Jetson_Orin_Nano/arranque` instalada y reinicio |
+| `ros2: command not found` | Entorno ROS 2 no instalado para todos | `Jetson_Orin_Nano/entorno_ros2` |
+| `Package 'udito_ros' not found` | Paquete sin compilar | `cd 05_ROS2/ros2_ws && colcon build --packages-select udito_ros --symlink-install` |
 | `Exec format error` en Piper | Binario de PC en vez de ARM | `./scripts/setup/piper-jetson.sh` |
-| Respuestas duplicadas | Dos instancias corriendo | `udito-ros.sh` ya cierra las anteriores |
-| `ros2: command not found` | ROS no cargado | `source /opt/ros/humble/setup.bash` |
+| Respuestas duplicadas | Dos instancias corriendo | Arrancar con `robot`, que cierra las anteriores |
 
 ---
 
-## 12. Flujo de trabajo Git
+## 10. Flujo de trabajo Git
 
 Ver [`GIT-FLOW.md`](GIT-FLOW.md). Trabajo en `feature/ros2-voice-orchestrator` → Pull Request a `develop` tras aprobación.
 
