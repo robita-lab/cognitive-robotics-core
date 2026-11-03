@@ -33,7 +33,7 @@ export DISPLAY=:0
 En la Jetson con monitor:
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 
 # Terminal 1 — cara + wakeword + emociones TTS (ROS2 + JSON)
 ./scripts/ros2/listener-wakeword.sh

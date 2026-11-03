@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Comando principal UDITO — 100 % offline en esta Jetson (wakeword + STT + RAG + TTS).
-# Uso: ./scripts/udito/start.sh   o   ./UDITO   desde /opt/robita-lab
+# Uso: ./scripts/udito/start.sh   o   ./UDITO   desde /opt/cognitive-robotics-core
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"

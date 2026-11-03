@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Arquitectura 3T - UDITO · Compila (si hace falta) y lanza voz + C.C. + Cognitive sobre ROS 2.
+# Arquitectura híbrida - UDITO · Compila (si hace falta) y lanza voz + C.C. + Cognitive sobre ROS 2.
 #
 #   ./scripts/ros2/udito-ros.sh                 # arranca (compila la primera vez)
 #   ./scripts/ros2/udito-ros.sh --build         # fuerza recompilar

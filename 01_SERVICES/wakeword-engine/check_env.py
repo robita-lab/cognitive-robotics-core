@@ -2,7 +2,7 @@
 """
 Diagnóstico del entorno wakeword en Jetson (o PC de desarrollo).
 
-  /opt/robita-lab/.venv/bin/python 01_SERVICES/wakeword-engine/check_env.py
+  /opt/cognitive-robotics-core/.venv/bin/python 01_SERVICES/wakeword-engine/check_env.py
 """
 
 from __future__ import annotations

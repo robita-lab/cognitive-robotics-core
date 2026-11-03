@@ -1,0 +1,20 @@
+# Arquitectura híbrida - UDITO · Ajustes de hardware de la Jetson al iniciar Ubuntu
+# Documentación: README.md (misma carpeta)
+#
+# 1. Modo de energía MAXN_SUPER (nvpmodel -m 2): sin límite de consumo, CPU 1,73 GHz y GPU 1,02 GHz.
+# 2. jetson_clocks: fija CPU, GPU y memoria a la frecuencia máxima de ese modo.
+# Resultado medido: el reconocimiento de voz (Whisper) responde en ~1,5 s y no en 13-27 s.
+
+[Unit]
+Description=UDITO - Jetson a máximo rendimiento (MAXN_SUPER + jetson_clocks)
+After=nvpmodel.service
+Wants=nvpmodel.service
+
+[Service]
+Type=oneshot
+ExecStartPre=/usr/sbin/nvpmodel -m 2
+ExecStart=/usr/bin/jetson_clocks
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

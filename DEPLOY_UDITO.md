@@ -31,13 +31,13 @@ Conexión **directa por IP y puerto** (HTTP máquina a máquina). Sin navegador.
 ## Etapa 1 — Probar aquí (todo local)
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 ./scripts/setup-venv.sh          # solo la primera vez
 ./scripts/etapa1-local.sh
 ```
 
 - Calibración de ruido → bienvenida hablada → di **«udito»** → pregunta → respuesta por altavoz.
-- Script: `03_ADAPTERS/robot-udit-physical/robot_voice_loop.py`
+- Script: `05_ROS2/udito_modulos_robot/robot_voice_loop.py`
 
 ---
 
@@ -46,7 +46,7 @@ cd /opt/robita-lab
 **Terminal A — cerebro (servidor):**
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 cp .env.example .env    # editar si hace falta
 ./scripts/etapa2-servidor.sh
 # Esperar a que RAG indexe (primera vez: varios minutos)
@@ -56,7 +56,7 @@ curl http://127.0.0.1:8000/services/status
 **Terminal B — cuerpo (simula Jetson en el mismo PC):**
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 export ROBITA_SERVER_URL=http://127.0.0.1:8000
 ./scripts/etapa2-edge.sh
 ```
@@ -76,7 +76,7 @@ En la Jetson real sustituye `127.0.0.1` por la **IP LAN del servidor**.
 ### Pasos recomendados
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 
 # 1. Revisar qué se sube
 git status
@@ -98,7 +98,7 @@ Alternativa: editar y ejecutar `Despliegue_github.sh` **solo en el servidor**, c
 
 ```
 01_SERVICES/          # motores + Dockerfiles
-03_ADAPTERS/robot-udit-physical/
+05_ROS2/udito_modulos_robot/
   robot_voice_loop.py   # etapa 1
   robot_edge_client.py  # etapa 2 Jetson
   robot_common.py
@@ -118,7 +118,7 @@ DEPLOY_UDITO.md
 ### 1. Servidor (cerebro) — una vez en el laboratorio
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 git pull
 cp .env.example .env
 ./scripts/etapa2-servidor.sh
@@ -135,13 +135,13 @@ Abre firewall solo en LAN si aplica: puertos **8000** (orquestador) desde la red
 sudo apt update
 sudo apt install -y python3-venv python3-pip portaudio19-dev alsa-utils git
 
-git clone https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
-cd /opt/robita-lab
+git clone https://github.com/robita-lab/cognitive-robotics-core.git /opt/cognitive-robotics-core
+cd /opt/cognitive-robotics-core
 
 python3 -m venv .venv
 source .venv/bin/activate
 # Solo lo que necesita el edge (ligero):
-pip install -r 03_ADAPTERS/robot-udit-physical/requirements-edge.txt
+pip install -r 05_ROS2/udito_modulos_robot/requirements-edge.txt
 
 cp .env.example .env
 # Editar:

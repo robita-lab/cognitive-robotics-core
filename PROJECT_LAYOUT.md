@@ -1,9 +1,9 @@
 # Estructura del proyecto (rama `develop` — Jetson offline)
 
 ```
-/opt/robita-lab/
+/opt/cognitive-robotics-core/
 ├── 01_SERVICES/          # wakeword, STT, TTS, RAG (librerías locales)
-├── 03_ADAPTERS/robot-udit-physical/   # udito_standalone.py, robot_common.py
+├── 05_ROS2/udito_modulos_robot/   # udito_standalone.py, robot_common.py
 ├── 04_KNOWLEDGE_CORE/    # textos + PDFs RAG
 ├── 05_ROS2/              # topics wakeword + voz
 ├── scripts/              # ver scripts/README.md

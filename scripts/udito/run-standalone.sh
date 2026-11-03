@@ -11,4 +11,4 @@ export ROBITA_KNOWLEDGE_CORE="${ROBITA_KNOWLEDGE_CORE:-$ROOT/04_KNOWLEDGE_CORE}"
 export HF_HOME="${HF_HOME:-$ROOT/data/huggingface}"
 export ROBITA_RAG_CONFIG="${ROBITA_RAG_CONFIG:-$ROOT/01_SERVICES/rag-engine/config/rag_config.jetson.json}"
 export CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES:-}"
-exec .venv/bin/python -u 03_ADAPTERS/robot-udit-physical/udito_standalone.py
+exec .venv/bin/python -u 05_ROS2/udito_modulos_robot/udito_standalone.py

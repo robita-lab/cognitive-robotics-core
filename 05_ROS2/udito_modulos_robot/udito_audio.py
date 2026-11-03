@@ -1,4 +1,4 @@
-"""Arquitectura 3T - UDITO · Pantalla de audio (capa reactiva: sensores y actuadores de sonido).
+"""Arquitectura híbrida - UDITO · Pantalla de audio (capa reactiva: sensores y actuadores de sonido).
 
 Elige micrófono y altavoz, mira el nivel en vivo, graba 3 s y escúchalo,
 lanza un tono de prueba y guarda la selección en .env (la usan STT y TTS).
@@ -20,7 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = next((p for p in Path(__file__).resolve().parents if (p / "01_SERVICES").is_dir()), Path("/opt/cognitive-robotics-core"))
 ENV = ROOT / ".env"
 RATE = 16000
 CHUNK = 960  # 30 ms de s16 mono = 480 muestras * 2 bytes
@@ -168,14 +168,15 @@ def set_volume(dev: dict, pct: int) -> None:
 
 
 def apply_env_volume() -> None:
-    """Aplica ROBITA_AUDIO_VOLUME del .env al altavoz configurado (lo usa el TTS al arrancar)."""
+    """Deja el altavoz de hardware al 100 %: el volumen elegido se aplica solo por software
+    (scale_wav en el TTS). Aplicarlo en los dos sitios lo multiplicaba y casi silenciaba la voz."""
     env = current_env()
     out, vol = env.get("ROBITA_AUDIO_OUTPUT", ""), env.get("ROBITA_AUDIO_VOLUME", "")
     if not out or not vol.isdigit():
         return
     backend = "alsa" if out.startswith(("plughw:", "hw:")) else "pulse"
     set_volume({"backend": backend, "id": out.replace("hw:", "plughw:", 1) if out.startswith("hw:") else out},
-               int(vol))
+               100)
 
 
 def gain(pct: int) -> float:

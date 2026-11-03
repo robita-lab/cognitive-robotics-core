@@ -11,7 +11,7 @@ import numpy as np
 
 log = logging.getLogger("speaker_lock")
 
-_SERVICES = Path(__file__).resolve().parents[2] / "01_SERVICES" / "wakeword-engine"
+_SERVICES = next((p for p in Path(__file__).resolve().parents if (p / "01_SERVICES").is_dir()), Path("/opt/cognitive-robotics-core")) / "01_SERVICES" / "wakeword-engine"
 if str(_SERVICES) not in sys.path:
     sys.path.insert(0, str(_SERVICES))
 

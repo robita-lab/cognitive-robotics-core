@@ -13,9 +13,9 @@ from pathlib import Path
 
 import numpy as np
 
-_ROOT = Path(__file__).resolve().parents[2]
-if str(_ROOT / "03_ADAPTERS" / "robot-udit-physical") not in sys.path:
-    sys.path.insert(0, str(_ROOT / "03_ADAPTERS" / "robot-udit-physical"))
+_ROOT = next((p for p in Path(__file__).resolve().parents if (p / "01_SERVICES").is_dir()), Path("/opt/cognitive-robotics-core"))
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from jetson_memory import apply_low_memory_env, low_memory_mode, release_models_after_stt, release_ram  # noqa: E402
 from log_config import apply_log_config, verbose_mode  # noqa: E402

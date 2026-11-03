@@ -15,7 +15,7 @@ models/
 main.py                ← API HTTP opcional (/detect, /stream)
 ```
 
-El robot (`03_ADAPTERS/robot-udit-physical/`) importa `Detector_wakeword as ww` y lee umbrales de detección desde este JSON. La configuración de grabación/VAD/speaker-lock está en `03_ADAPTERS/robot-udit-physical/config/session.json`.
+El robot (`05_ROS2/udito_modulos_robot/`) importa `Detector_wakeword as ww` y lee umbrales de detección desde este JSON. La configuración de grabación/VAD/speaker-lock está en `05_ROS2/udito_modulos_robot/config/session.json`.
 
 ## Configuración (`config/wakeword.json`)
 
@@ -66,7 +66,7 @@ En `.env` (modelo preentrenado OWW — di **«hey jarvis»** en inglés):
 
 ```bash
 ROBITA_WAKEWORD=hey jarvis
-ROBITA_WAKEWORD_MODEL=/opt/robita-lab/01_SERVICES/wakeword-engine/models/openwakeword/hey_jarvis_v0.1.onnx
+ROBITA_WAKEWORD_MODEL=/opt/cognitive-robotics-core/01_SERVICES/wakeword-engine/models/openwakeword/hey_jarvis_v0.1.onnx
 ```
 
 Otros: `alexa`, `hey_mycroft`, `hey_rhasspy`, `timer`, `weather` (misma carpeta, sufijo `_v0.1.onnx`).
@@ -74,7 +74,7 @@ Otros: `alexa`, `hey_mycroft`, `hey_rhasspy`, `timer`, `weather` (misma carpeta,
 ## Probar carga
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 source .venv/bin/activate
 python -c "
 import sys; sys.path.insert(0,'01_SERVICES/wakeword-engine')

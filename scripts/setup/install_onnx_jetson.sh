@@ -4,7 +4,7 @@
 #
 # Uso:
 #   ./scripts/setup/install_onnx_jetson.sh
-#   ./scripts/setup/install_onnx_jetson.sh /opt/robita-lab/.venv
+#   ./scripts/setup/install_onnx_jetson.sh /opt/cognitive-robotics-core/.venv
 #
 # JetPack 6.x + cuDNN 9 → onnxruntime-gpu 1.23 (cp310, libcudnn.so.9)
 # JetPack 6.x + cuDNN 8 → onnxruntime-gpu 1.18 (wheel NVIDIA box.com)

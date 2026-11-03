@@ -27,7 +27,7 @@ log = logging.getLogger("robot")
 
 CHUNK_SEC = 0.1
 
-ROOT = Path(__file__).resolve().parents[2]
+ROOT = next((p for p in Path(__file__).resolve().parents if (p / "01_SERVICES").is_dir()), Path("/opt/cognitive-robotics-core"))
 
 
 def _parse_audio_device(env_key: str) -> int | str | None:
