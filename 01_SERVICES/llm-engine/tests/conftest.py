@@ -31,6 +31,14 @@ class FakeLLMClient:
         return None
 
 
+@pytest.fixture(autouse=True)
+def _no_api_keys_from_local_env(monkeypatch):
+    """Los tests no dependen del .env local: sin clave salvo que el test la ponga."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "api_keys", "")
+
+
 @pytest.fixture
 async def client() -> AsyncIterator[AsyncClient]:
     app.state.llm = FakeLLMClient()

@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import chat, conversations, health
+from app.api import chat, conversations, health, turn
 from app.config import settings
 from app.llm.openai_compat import OpenAICompatClient
 from app.memory.store import build_store
@@ -27,6 +27,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         model=settings.llm_model,
     )
     app.state.memory = await build_store(settings)
+    if not settings.api_key_set:
+        log.warning("ROBITA_API_KEYS vacía: /v2 acepta peticiones sin clave (solo para desarrollo)")
 
     if settings.llm_warmup_on_start:
         try:
@@ -58,3 +60,4 @@ app.add_middleware(
 app.include_router(health.router)
 app.include_router(chat.router, prefix="/v1")
 app.include_router(conversations.router, prefix="/v1")
+app.include_router(turn.router, prefix="/v2")

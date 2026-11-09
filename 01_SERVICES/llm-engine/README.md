@@ -50,6 +50,32 @@ Si corre en la propia Jetson, pon además `ROBITA_STOP_OLLAMA=0` y
 | POST | `/v1/chat` | `{conversation_id, user_text, max_tokens?}` → `{reply, model, tier}` |
 | POST | `/v1/chat/stream` | Igual, en SSE (`token` … `done`) |
 | GET / DELETE | `/v1/conversations/{id}` | Ver / borrar la memoria de una conversación |
+| POST | **`/v2/turn`** | Turno **sin estado** para `robita_cognitive` (ver abajo). Requiere clave de API |
+
+`/v1` se mantiene para `./UDITO` (`llm_fallback.py`); guarda la memoria en el
+servidor. Lo nuevo va por `/v2`.
+
+### `/v2/turn` (D5: la memoria vive en el robot)
+
+```json
+{"session_id": "s1", "turn_id": "t7", "user_text": "¿Tengo que traducir mis documentos?",
+ "history": [{"role": "user", "content": "Hola"}, {"role": "assistant", "content": "¡Hola!"}],
+ "context": [{"source": "normativa:ACC:7", "title": "Normativa de acceso…, artículo 7", "text": "…"}],
+ "max_tokens": 120, "stream": true}
+```
+
+- El servidor **no guarda nada**: el robot manda el historial en cada turno.
+- Con `context` (fragmentos que encontró la búsqueda local del robot), el LLM
+  responde **solo** con esa información; sin él, conversación general sin
+  inventar datos de UDIT. Prompts en `app/llm/prompts.py`.
+- `stream: true` → SSE: `token` (texto), `done` (`{text, model, latency_ms, finish}`) o `error`.
+  `stream: false` → JSON `{text, model, latency_ms, finish}`.
+- **Cancelación:** si el robot cierra la conexión, se aborta la petición a
+  Ollama y se registra `cancelado por el cliente … generación abortada`.
+- **Clave:** `Authorization: Bearer <clave>` o `X-API-Key`. Claves en
+  `ROBITA_API_KEYS` (separadas por comas). Vacía = sin clave, solo para
+  desarrollo (el arranque lo avisa). El robot la recibe en `ROBITA_LLM_API_KEY`.
+- Límites: `TURN_MAX_HISTORY` (16 mensajes), `TURN_MAX_CONTEXT_CHARS` (6000), `TURN_MAX_TOKENS_CAP` (400).
 
 Configuración por variables de entorno: ver `.env.example` y ARCHITECTURE.md §7.3.
 
