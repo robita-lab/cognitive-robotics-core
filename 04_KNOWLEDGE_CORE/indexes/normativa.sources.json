@@ -1,0 +1,20 @@
+{
+  "name": "normativa",
+  "_doc": "Fuentes del índice de normativa de robita_cognitive. Tras cambiar un documento: python -m robita_cognitive.tools.build_index 04_KNOWLEDGE_CORE/indexes/normativa.sources.json y python -m robita_cognitive.tools.eval_index (ver 05_ROS2/ros2_ws/src/robita_cognitive/README.md). structure: articulos (ARTÍCULO N.), puntos (1. 2. 3.) o entero. title se lee en voz alta: 'Según el artículo 4 de la <title>'.",
+  "embedding_model": "intfloat/multilingual-e5-small",
+  "max_chars": 900,
+  "min_score": 0.84,
+  "search_mode": "dense",
+  "documents": [
+    {"code": "ACC", "path": "04_KNOWLEDGE_CORE/raw-docs/04_Normativa_AccesoyAdmision.pdf", "structure": "articulos",
+     "title": "normativa de acceso y admisión a grado y máster"},
+    {"code": "RAC", "path": "04_KNOWLEDGE_CORE/raw-docs/06_Normativa-RAC.pdf", "structure": "articulos",
+     "title": "normativa de reconocimiento académico de créditos por actividades universitarias, el RAC"},
+    {"code": "CON", "path": "04_KNOWLEDGE_CORE/raw-docs/Condiciones_generales24.25.pdf", "structure": "articulos",
+     "title": "condiciones generales de admisión y matrícula"},
+    {"code": "EXT", "path": "04_KNOWLEDGE_CORE/raw-docs/NormativaExtincionTitulacionesOficiales.pdf", "structure": "puntos",
+     "title": "normativa de extinción de titulaciones oficiales"},
+    {"code": "POL", "path": "04_KNOWLEDGE_CORE/raw-docs/UDIT-POLITICA-DE-CALIDAD-Y-M.AMBIENTE.pdf", "structure": "entero",
+     "title": "política de calidad y medio ambiente de UDIT, con su misión, visión y valores"}
+  ]
+}
