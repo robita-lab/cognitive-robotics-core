@@ -1,0 +1,13 @@
+# Overlay para el servidor con GPU NVIDIA (necesita nvidia-container-toolkit en el host).
+#   docker compose -f docker-compose.yml -f docker-compose.gpu.yml up -d
+# (con compose v1: python3 -m compose -f docker-compose.yml -f docker-compose.gpu.yml up -d)
+# La Jetson y los equipos sin GPU usan solo docker-compose.yml.
+services:
+  ollama:
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]

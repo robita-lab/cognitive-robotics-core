@@ -131,7 +131,7 @@ Model selection:
 | Tier | Model | Quantization | Why |
 |---|---|---|---|
 | Local (on-robot) | `qwen2.5:0.5b-instruct` (start) → `qwen2.5:1.5b-instruct` (if CPU allows) | Q4_K_M | Strong Spanish, tiny footprint, 100 ms-ish TTFT on CPU |
-| Server (GPU) | **`qwen2.5:3b-instruct`** | Q4_K_M | Primary: strong Spanish, fits easily on any modern consumer GPU |
+| Server (GPU) | **`qwen3:4b-instruct-2507-q4_K_M`** | Q4_K_M | Primary since 2026-11-09: best of 6 models on the normativa/voice benchmark (`robita_cognitive.tools.eval_llm`), ~0.7 s to first sentence on an RTX 4080 Laptop, 2.5 GB. `qwen2.5:7b` was close but cited wrong articles and once switched to Chinese mid-answer (see `docs/RAG_NORMATIVA.md` §8). Previous default: `qwen2.5:3b-instruct`. |
 
 Fallbacks kept as overlays: `llama3.2:3b-instruct`, `phi3:mini`, `gemma2:2b`.
 
@@ -242,7 +242,7 @@ Streaming response: SSE events of shape `{"type": "token", "value": "..."}`, ter
 | `UDITO_TIER` | `server` | `server` \| `local`. Influences defaults below. |
 | `LLM_BASE_URL` | `http://ollama:11434/v1` | OpenAI-compatible endpoint (Ollama / llama.cpp / vLLM). |
 | `LLM_API_KEY` | `ollama` | Most local backends accept any string. |
-| `LLM_MODEL` | `qwen2.5:3b-instruct` (server) / `qwen2.5:0.5b-instruct` (local) | Model tag. |
+| `LLM_MODEL` | `qwen3:4b-instruct-2507-q4_K_M` (server) / `qwen2.5:0.5b-instruct` (local) | Model tag. |
 | `LLM_WARMUP_ON_START` | `true` | Fire a 1-token dummy completion on boot. |
 | `LLM_MAX_TOKENS_DEFAULT` | `80` | Per-request cap if not overridden. |
 | `REDIS_URL` | `redis://redis:6379/0` (server) / unset (local) | If unset → `InMemoryStore`. |

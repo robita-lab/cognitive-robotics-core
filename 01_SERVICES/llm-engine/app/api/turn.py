@@ -80,14 +80,15 @@ async def turn(request: Request, body: TurnRequest):
              tag, len(body.history), len(body.context), body.stream)
 
     if not body.stream:
-        text = await llm.complete(messages=messages, max_tokens=max_tokens)
+        text = await llm.complete(messages=messages, max_tokens=max_tokens, temperature=settings.turn_temperature)
         return TurnResponse(text=text.strip(), model=settings.llm_model,
                             latency_ms=(time.perf_counter() - t0) * 1000)
 
     async def events() -> AsyncIterator[dict]:
         collected: list[str] = []
         try:
-            async for token in llm.stream_complete(messages=messages, max_tokens=max_tokens):
+            async for token in llm.stream_complete(messages=messages, max_tokens=max_tokens,
+                                                   temperature=settings.turn_temperature):
                 collected.append(token)
                 yield {"event": "token", "data": token}
             done = {"text": "".join(collected).strip(), "model": settings.llm_model,

@@ -24,13 +24,15 @@ respuesta vuelve por la capa C.C. Lo usan:
 cd 01_SERVICES/llm-engine
 cp .env.example .env
 
-# PC con GPU (modelo 3B + Redis)
+# Servidor con GPU NVIDIA (modelo qwen3:4b-instruct-2507-q4_K_M + Redis; necesita nvidia-container-toolkit)
+docker compose -f docker-compose.yml -f docker-compose.gpu.yml up --build -d
+# PC sin GPU (mismo modelo en CPU: lento, solo para desarrollo)
 docker compose up --build -d
 # Jetson / CPU (modelo 0.5B, sin Redis)
 docker compose -f docker-compose.yml -f docker-compose.local.yml up --build -d
 
 # Primera vez: descargar el modelo en Ollama
-docker compose exec ollama ollama pull qwen2.5:3b-instruct      # o qwen2.5:0.5b-instruct
+docker compose exec ollama ollama pull qwen3:4b-instruct-2507-q4_K_M      # o qwen2.5:0.5b-instruct en CPU/Jetson
 
 curl http://localhost:8080/readyz
 curl -s http://localhost:8080/v1/chat -H 'Content-Type: application/json' \

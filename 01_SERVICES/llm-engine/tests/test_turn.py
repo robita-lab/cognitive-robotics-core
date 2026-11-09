@@ -12,12 +12,12 @@ class RecordingLLM:
         self.reply = reply
         self.calls: list[dict] = []
 
-    async def complete(self, messages, max_tokens):
-        self.calls.append({"messages": messages, "max_tokens": max_tokens})
+    async def complete(self, messages, max_tokens, temperature=None):
+        self.calls.append({"messages": messages, "max_tokens": max_tokens, "temperature": temperature})
         return self.reply
 
-    async def stream_complete(self, messages, max_tokens):
-        self.calls.append({"messages": messages, "max_tokens": max_tokens})
+    async def stream_complete(self, messages, max_tokens, temperature=None):
+        self.calls.append({"messages": messages, "max_tokens": max_tokens, "temperature": temperature})
         for w in self.reply.split(" "):
             yield w + " "
 
@@ -106,6 +106,7 @@ async def test_history_is_trimmed_and_max_tokens_capped(client, llm, monkeypatch
     call = llm.calls[0]
     assert [m["content"] for m in call["messages"][1:-1]] == ["m8", "m9"]
     assert call["max_tokens"] == 50
+    assert call["temperature"] == settings.turn_temperature
 
 
 async def test_api_key_required_when_configured(client, llm, monkeypatch):

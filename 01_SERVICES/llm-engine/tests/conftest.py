@@ -11,10 +11,10 @@ class FakeLLMClient:
     def __init__(self, canned_reply: str = "hola, soy UDITO") -> None:
         self._reply = canned_reply
 
-    async def complete(self, messages: list[dict], max_tokens: int) -> str:
+    async def complete(self, messages: list[dict], max_tokens: int, temperature: float | None = None) -> str:
         return self._reply
 
-    async def stream_complete(self, messages: list[dict], max_tokens: int):
+    async def stream_complete(self, messages: list[dict], max_tokens: int, temperature: float | None = None):
         for chunk in self._reply.split(" "):
             yield chunk + " "
 
