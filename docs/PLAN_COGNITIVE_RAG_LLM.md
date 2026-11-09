@@ -98,10 +98,12 @@ C.C. / BT ──Think (acción, cancelable)──► robita_cognitive   (robot, 
       general → LLM, normativa → LLM con fragmentos, servidor caído → local,
       sin URL → local; cancelar `Think` y un goal nuevo abortan la generación
       en el servidor ("cancelado por el cliente tras 80 trozos").
-- [ ] **Medir con 7B en GPU.** En CPU con 3B la primera frase con fragmentos
-      tarda 12–14 s (≈1000 tokens de contexto) y la calidad es floja. El
-      Docker de este portátil no tiene `nvidia-container-toolkit`; probar en
-      el servidor (Quadro RTX 4000) o instalarlo aquí.
+- [x] **Modelo del servidor (2026-11-09):** comparados 6 modelos de 4–8B en
+      GPU (`docs/RAG_NORMATIVA.md` §8). Gana `qwen3:4b-instruct-2507`
+      (15/15 normativa, 3/3 general, 1ª frase 0,68 s p50). Filtro de voz en
+      el robot (marcas, markdown, cambio de alfabeto). `docker-compose.gpu.yml`
+      para el servidor. Verificado por ROS con timeout de 8 s.
+- [ ] Repetir la medición en el servidor del laboratorio (Quadro RTX 4000).
 - [ ] RAG completo en el servidor (más documentos, embeddings mayores): hoy el
       servidor usa los fragmentos que le manda el robot, que bastan para la
       normativa actual.

@@ -166,3 +166,61 @@ de arreglarlo es preparar las respuestas de antemano:
   que sigue usando `./UDITO`.
 - **Tablas aplanadas:** la tabla de vías de acceso del art. 4 de ACC sale como
   texto corrido ("VÍA DE ACCESO DOCUMENTACIÓN REQUERIDA…"). Las fichas lo resuelven.
+
+## 8. LLM del servidor (P2): qué modelo
+
+Banco: 15 preguntas de normativa (las respuestas pasan por el LLM con los
+3 fragmentos recuperados) y 3 de cultura general. Se comprueba de forma
+automática que aparezca el dato clave (B2, 25 horas, "no reembolsable",
+julio…) y que no haya markdown ni listas, y **después se revisa todo a mano**.
+Herramienta: `python -m robita_cognitive.tools.eval_llm`.
+
+Hardware: RTX 4080 Laptop (12 GB). El servidor del laboratorio (Quadro RTX
+4000, 8 GB) es más lento; cabe esperar algo más de latencia.
+
+**Ronda 1** (primer prompt, mismas preguntas):
+
+| Modelo | Normativa | General | Estilo voz | 1ª frase p50 | Total p50 | Notas de la revisión |
+|---|---|---|---|---|---|---|
+| sin LLM (extractiva) | 9/15 | 0/3 | 18/18 | — | 6 ms | frase literal, a veces no contesta |
+| qwen2.5:7b-instruct | 14/15 | 3/3 | 18/18 | 1105 ms | 1194 ms | **saltó al chino** a mitad de una respuesta; dice "según [1]" |
+| llama3.1:8b | 12/15 | 3/3 | 18/18 | 846 ms | 1268 ms | |
+| ministral-3:8b | 13/15 | 2/3 | **3/18** | 1202 ms | 1434 ms | markdown y listas casi siempre |
+| mistral:7b | 10/15 | 3/3 | 15/18 | 976 ms | 1308 ms | |
+| qwen3:4b-instruct-2507 | 13/15 | 3/3 | 18/18 | 649 ms | 902 ms | los 2 "fallos" eran correctos (1 ECTS por tipo de actividad) |
+| qwen3:8b | — | — | — | — | — | modelo con razonamiento: gasta los tokens pensando; solo 1/18 llegó a responder. Descartado tal cual |
+
+**Cambios tras la ronda 1:**
+- Prompt: solo español, citar con naturalidad y sin números de fragmento, y responder a la cultura general (antes se negaba con la capital de Australia).
+- Temperatura 0,3 en `/v2`.
+- **Filtro de voz en el robot** (`core/speech_filter.py`): quita "[1]", "(2)", markdown, guiones de lista y URLs. Si aparece otro alfabeto, corta ahí y se queda con lo ya dicho.
+
+**Ronda 2** (prompt nuevo, filtro activo), revisada a mano:
+
+| Modelo | Contenido correcto | Cita bien el artículo | 1ª frase p50 / p90 | Total p50 |
+|---|---|---|---|---|
+| qwen2.5:7b-instruct | 14/15 · 3/3 | ✗ 4 citas erróneas ("artículo 4" por el 7, condiciones atribuidas a la normativa de acceso…) | 882 / 1193 ms | 954 ms |
+| **qwen3:4b-instruct-2507** | **15/15 · 3/3** | ✓ casi todas | **669 / 906 ms** | **767 ms** |
+| llama3.1:8b | 10/15 · 3/3 | — | 867 / 1186 ms | 1029 ms |
+
+**Decisión:** `qwen3:4b-instruct-2507-q4_K_M` pasa a ser el modelo por defecto del servidor:
+- Es el más preciso y el más rápido.
+- Ocupa 2,5 GB, así que en los 8 GB del servidor deja sitio a otros servicios.
+- No ha mostrado saltos de idioma.
+
+**Verificación en el camino de despliegue** (`docker-compose.gpu.yml`, Ollama
+en Docker con GPU), por ROS (`docker/e2e_llm.sh`) con el timeout por defecto
+de 8 s:
+- 15/15 · 3/3 · estilo 18/18.
+- Primera frase 680 ms (p50) / 971 ms (p90).
+- Cancelar a los 0,9 s → CANCELED, y el servidor aborta tras 65 trozos.
+- Un goal nuevo → el anterior queda ABORTED y el servidor aborta antes de generar.
+
+**Pendiente:**
+- Repetir en el servidor real (Quadro RTX 4000).
+- Ampliar el banco con preguntas reales de visitantes.
+
+Errores menores que siguen saliendo con qwen3:4b:
+- Alguna concordancia ("si te echo atrás").
+- Respuestas incompletas ("1 ECTS por actividad" sin decir que el máximo anual es 2).
+- Alguna atribución al documento equivocado (condiciones generales → "normativa de admisión").
