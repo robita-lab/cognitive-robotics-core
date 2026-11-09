@@ -2,9 +2,11 @@
 robita_cognitive:
   ros__parameters:
     repo_root: ""                 # vacío = $ROBITA_REPO_ROOT o autodetectar
-    use_rag: true                 # false = solo respuestas fijas (arranque instantáneo)
-    rag_config: ""                # vacío = $ROBITA_RAG_CONFIG o rag-engine/config/rag_config.json
-    rag_rebuild: false
+    use_rag: true                 # false = solo reglas / respuestas fijas
+    rag_backend: normativa        # normativa (e5-small ONNX, sin torch) | legacy (RAGSystem, torch) | none
+    index_dir: ""                 # vacío = 04_KNOWLEDGE_CORE/indexes/normativa
+    rag_config: ""                # solo legacy: vacío = $ROBITA_RAG_CONFIG o rag-engine/config/rag_config.json
+    rag_rebuild: false            # solo legacy
     memory_turns: 8               # pares pregunta/respuesta por sesión
     memory_ttl_s: 300.0           # sesión olvidada tras 5 min sin actividad
     think_action: /udito/cognitive/think

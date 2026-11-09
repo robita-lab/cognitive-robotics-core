@@ -11,8 +11,8 @@ Ofrece dos entradas al mismo motor:
    /udito/cognitive/answer {"id","text","emotion","source",...}
    Así el C.C. actual funciona sin cambios mientras llega el Behavior Tree.
 
-El RAG se carga en segundo plano: hasta que está listo contestan las
-respuestas fijas (basic_qa).
+Los backends se cargan en segundo plano (normativa: ~1 s; legacy: minutos);
+mientras tanto contestan las reglas / respuestas fijas.
 """
 
 from __future__ import annotations
@@ -43,6 +43,8 @@ class CognitiveNode(Node):
         p = self.declare_parameter
         p("repo_root", "")
         p("use_rag", True)
+        p("rag_backend", "normativa")   # normativa | legacy | none
+        p("index_dir", "")
         p("rag_config", "")
         p("rag_rebuild", False)
         p("memory_turns", 8)
@@ -58,6 +60,8 @@ class CognitiveNode(Node):
             EngineConfig(
                 repo_root=g("repo_root").value,
                 use_rag=g("use_rag").value,
+                rag_backend=g("rag_backend").value,
+                index_dir=g("index_dir").value,
                 rag_config=g("rag_config").value,
                 rag_rebuild=g("rag_rebuild").value,
                 memory_turns=g("memory_turns").value,

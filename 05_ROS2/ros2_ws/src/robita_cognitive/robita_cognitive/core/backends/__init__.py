@@ -1,4 +1,5 @@
 from .base import Backend
-from .legacy import BasicQaBackend, LegacyRagBackend, map_legacy_result
+from .legacy import BasicQaBackend, LegacyRagBackend, RulesBackend, map_legacy_result
+from .normativa import NormativaBackend
 
-__all__ = ["Backend", "BasicQaBackend", "LegacyRagBackend", "map_legacy_result"]
+__all__ = ["Backend", "BasicQaBackend", "LegacyRagBackend", "NormativaBackend", "RulesBackend", "map_legacy_result"]

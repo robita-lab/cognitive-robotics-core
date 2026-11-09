@@ -3,25 +3,37 @@
 Capa cognitiva de ROBITA: decide **qué decir** (RAG + LLM). Implementa la
 acción `Think` de `robita_interfaces` (D3) y, mientras llega el Behavior Tree,
 un adaptador compatible con el `cognitive_node` de `udito_ros`.
-Plan completo: `docs/PLAN_COGNITIVE_RAG_LLM.md`.
+Plan: `docs/PLAN_COGNITIVE_RAG_LLM.md` · Evaluación del RAG: `docs/RAG_NORMATIVA.md`.
 
 ```
 C.C. / BT ──Think──► cognitive_node ──► CognitiveEngine (robita_cognitive.core, Python puro)
-C.C. actual ─topics─►      │              ├─ memoria por session_id (fuente de verdad, D5)
-                           │              ├─ backends locales: rag_local → basic_qa
-                           │              └─ backend remoto (P2): llm-engine por HTTP
+C.C. actual ─topics─►                    ├─ memoria por session_id (fuente de verdad, D5)
+                                         ├─ local: rules → normativa   (sin red)
+                                         └─ remoto (P2): llm-engine por HTTP
 ```
+
+## Backends locales (`rag_backend`)
+
+| Valor | Qué hace | Dependencias |
+|---|---|---|
+| `normativa` (defecto) | `rules` (respuestas fijas, chistes, sedes, horarios: las reglas del rag-engine, sin modelos) + `normativa` (índice por artículos con e5-small ONNX; responde citando el artículo o se abstiene) | numpy, onnxruntime, tokenizers |
+| `legacy` | `RAGSystem` completo de `01_SERVICES/rag-engine` (lo que usa `./UDITO`) | torch, sentence-transformers, faiss, PyPDF2 |
+| `none` | solo `rules` | stdlib |
 
 ## Estructura
 
 | Ruta | Qué es |
 |------|--------|
-| `robita_cognitive/core/` | Motor, memoria, troceo en frases, backends. **Sin ROS**: se prueba con `pytest`. |
-| `robita_cognitive/core/backends/legacy.py` | Envuelve el `rag-engine` actual (`01_SERVICES/rag-engine`): mismo comportamiento que `./UDITO`. |
+| `robita_cognitive/core/` | Motor, memoria, frases, embeddings, índice y backends. **Sin ROS**. |
+| `robita_cognitive/core/embeddings.py` | e5-small en ONNX Runtime (revisión del modelo fijada). |
+| `robita_cognitive/core/knowledge.py` | Índice de conocimiento: carga, búsqueda densa/híbrida, BM25. |
+| `robita_cognitive/core/backends/` | `rules`, `normativa`, `legacy`. |
+| `robita_cognitive/tools/` | `fetch_model` (descarga el modelo), `build_index`, `eval_index`. |
 | `robita_cognitive/think_server.py` | Nodo ROS 2 (`cognitive_node`): acción `Think` + adaptador de topics. |
 | `robita_cognitive/think_client.py` | Cliente de prueba de `Think`. |
 | `robita_cognitive/cli.py` | Prueba el motor sin ROS. |
-| `docker/Dockerfile.humble` | Imagen de desarrollo con torch CPU + sentence-transformers + faiss y el modelo de embeddings dentro. |
+| `docker/` | Imagen de desarrollo (`Dockerfile.humble`) y prueba de punta a punta (`e2e.sh`). |
+| `04_KNOWLEDGE_CORE/indexes/` (raíz del repo) | `normativa.sources.json`, banco `normativa.eval.json` e índice versionado `normativa/`. |
 
 ## Interfaces
 
@@ -38,61 +50,72 @@ C.C. actual ─topics─►      │              ├─ memoria por session_id 
 Para usarlo con el C.C. de Danilo: lanzar este nodo **en lugar de**
 `udito_ros cognitive_node` y poner `use_cognitive:=true` en `udito_cc_node`.
 
+`detail` dice de dónde sale cada respuesta, p. ej. `normativa:ACC:7@deee5efafe`
+(artículo 7 de acceso, índice con esa huella) o `knowledge_horarios`.
+
 ## Parámetros
 
-Ver `config/cognitive.yaml`. Los importantes: `use_rag` (false = solo
-respuestas fijas, arranque instantáneo), `repo_root` (o `$ROBITA_REPO_ROOT`),
-`memory_turns`, `memory_ttl_s`.
-
-El RAG tarda en cargar (embeddings + índice); mientras tanto contesta
-`basic_qa`. El log avisa con `backends cargados: {...}`.
+Ver `config/cognitive.yaml`: `rag_backend`, `index_dir`, `repo_root` (o
+`$ROBITA_REPO_ROOT`), `memory_turns`, `memory_ttl_s`. El modelo se busca en
+`$ROBITA_MODELS_DIR` (por defecto `~/.cache/robita/models`).
 
 ## Probar sin ROS
 
 ```bash
 cd 05_ROS2/ros2_ws/src/robita_cognitive
-uv run --no-project --with pytest python -m pytest -q test/   # 27 tests, sin modelos
-python3 -m robita_cognitive.cli --no-rag "hola"               # solo respuestas fijas
+UV="uv run --no-project --with numpy --with onnxruntime --with tokenizers"
+$UV --with pytest python -m pytest -q test/          # 43 tests, sin modelo
+$UV python -m robita_cognitive.tools.fetch_model     # una vez, con red (~490 MB)
+$UV python -m robita_cognitive.cli "¿Tengo que traducir mis documentos?"
+$UV python -m robita_cognitive.tools.eval_index -v   # mide el índice con el banco de preguntas
 ```
+
+## Actualizar la normativa (índice)
+
+1. Copiar el PDF a `04_KNOWLEDGE_CORE/raw-docs/` y declararlo en
+   `04_KNOWLEDGE_CORE/indexes/normativa.sources.json` (código, título que se
+   dirá en voz alta, estructura `articulos | puntos | entero`).
+2. `$UV --with pypdf python -m robita_cognitive.tools.build_index 04_KNOWLEDGE_CORE/indexes/normativa.sources.json`
+   (se ejecuta en el portátil o el servidor, **no** en el robot).
+3. Añadir preguntas al banco `normativa.eval.json` y comprobar que las métricas
+   no empeoran con `eval_index`.
+4. Commitear `04_KNOWLEDGE_CORE/indexes/normativa/` (≈ 260 KB). El robot solo lo carga.
 
 ## Probar sin Jetson (contenedor Humble)
 
 ```bash
-# Imagen (una vez; ~2,2 GB):
-docker build -t robita-cognitive:humble \
-  -f 05_ROS2/ros2_ws/src/robita_cognitive/docker/Dockerfile.humble \
-  05_ROS2/ros2_ws/src/robita_cognitive/docker/
-# Prueba de punta a punta desde la raíz del repo; --network none = sin WiFi:
-docker run --rm --network none -v "$PWD:/repo:ro" \
-  -v robita-rag-cache:/robita/01_SERVICES/rag-engine/data \
-  robita-cognitive:humble bash /repo/05_ROS2/ros2_ws/src/robita_cognitive/docker/e2e.sh
+cd 05_ROS2/ros2_ws/src/robita_cognitive
+docker build -t robita-cognitive:humble -f docker/Dockerfile.humble .        # ~1,6 GB, sin torch
+cd ../../../..   # raíz del repo; --network none = sin WiFi
+docker run --rm --network none -v "$PWD:/repo:ro" robita-cognitive:humble \
+  bash /repo/05_ROS2/ros2_ws/src/robita_cognitive/docker/e2e.sh
 ```
 
-`docker/e2e.sh` compila los dos paquetes, lanza el nodo con el RAG y hace
-varias preguntas por `Think`. A mano, dentro del contenedor:
-`ros2 launch robita_cognitive cognitive.launch.py [use_rag:=false]` y
-`ros2 run robita_cognitive think_client "¿Dónde está la universidad?"`.
+`e2e.sh` compila los dos paquetes, lanza el nodo, hace preguntas por `Think` e
+imprime la memoria del nodo. Para el backend `legacy`: imagen con
+`--build-arg LEGACY_RAG=1` (~2,2 GB) y ver el comentario de `e2e.sh`.
 
 ## En la Jetson (pendiente de acceso)
 
 1. `colcon build --packages-select robita_interfaces robita_cognitive` (Humble nativo, JetPack 6).
-2. `export ROBITA_REPO_ROOT=<ruta al repo>`; con `--symlink-install` se autodetecta.
-3. Dependencias del RAG: `01_SERVICES/rag-engine/requirements-jetson.txt`.
-   **Ojo:** instalar torch con pip trae un `setuptools` que rompe `colcon build`
-   (`TypeError: canonicalize_version() ... strip_trailing_zero`). Solución:
-   `pip3 uninstall setuptools` para que quede el de apt.
-4. Medir RAM/CPU con el RAG cargado antes de añadir más nodos (condición 3 de Danilo).
+2. `pip3 install "numpy<2" onnxruntime tokenizers` (o `onnxruntime-gpu` de Jetson Zoo para usar la GPU).
+3. `python3 -m robita_cognitive.tools.fetch_model` con red, o copiar `~/.cache/robita/models/`.
+4. `export ROBITA_REPO_ROOT=<ruta al repo>` (con `--symlink-install` se autodetecta).
+5. Medir RAM/CPU con el nodo cargado (condición 3 de Danilo). Referencia en x86: 868 MB RSS con e5 fp32;
+   si no cabe, int8 (ver `docs/RAG_NORMATIVA.md` §4).
+
+Solo para `legacy`: instalar torch con pip trae un `setuptools` que rompe
+`colcon build` (`TypeError: canonicalize_version() ... strip_trailing_zero`);
+`pip3 uninstall setuptools` deja el de apt.
 
 ## Problemas conocidos
 
-- **Calidad de las respuestas documentales:** el RAG actual, sin LLM, devuelve
-  fragmentos literales (a veces cortados) y usa embeddings en inglés. Se
-  arregla con embeddings multilingües (P1, paso 2) y con el LLM del servidor (P2).
-- **Cancelación:** el RAG actual no se puede interrumpir a mitad; se comprueba
-  la cancelación entre backends. La cancelación real (cerrar el stream del
-  LLM) llega con P2.
-- **Segfaults aleatorios al parsear PDF** (PyPDF2 y pypdf) dentro del
-  contenedor ROS en el portátil de desarrollo (~15–30 % de ejecuciones); no
-  ocurre en el host ni en `ubuntu:22.04`. Causa sin aclarar. Mitigación: la
-  caché de texto por PDF (`rag-engine/data/rag_cache`) hace que solo haya que
-  parsear una vez. Comprobar en la Jetson.
+- **Respuestas extractivas:** el artículo es el correcto en el 78 % (95 % entre
+  los 3 primeros), pero la frase elegida no siempre contesta exactamente.
+  Siguiente paso: fichas por artículo revisadas por una persona (`docs/RAG_NORMATIVA.md` §6) y LLM del servidor (P2).
+- **Cancelación:** se comprueba entre backends; la cancelación real (cerrar el
+  stream del LLM) llega con P2. Las rutas de cancelar/interrumpir del servidor
+  `Think` aún no se han probado con un backend lento.
+- **Segfaults aleatorios de Python en contenedores `ros:humble` del portátil de
+  desarrollo** (también en `colcon build`); no en el host. Si una prueba en
+  Docker muere con `Segmentation fault`, repetirla. Comprobar en la Jetson.

@@ -102,6 +102,107 @@ class BasicQaBackend:
         )
 
 
+import re as _re
+import unicodedata as _ud
+
+
+def _fold(t: str) -> str:
+    return "".join(c for c in _ud.normalize("NFD", t.lower()) if _ud.category(c) != "Mn")
+
+
+def _has_word(text: str, words: tuple[str, ...]) -> bool:
+    """Palabra o expresión completa (las reglas antiguas usan subcadenas: "hora" casaba con "horas")."""
+    t = _fold(text)
+    return any(_re.search(rf"\b{_re.escape(_fold(w))}\b", t) for w in words)
+
+
+# Mismas listas que load_responses.match_knowledge_text, pero exigiendo palabra completa.
+_ADDRESS_WORDS = ("direccion", "sede", "sedes", "donde esta", "donde queda", "ubicacion", "campus",
+                  "calle", "avenida", "domicilio")
+_UNI_WORDS = ("universidad", "udit", "facultad", "centro")
+_WHERE_WORDS = ("cual", "donde", "que es", "dime")
+_SCHEDULE_WORDS = ("horario", "horarios", "hora", "abre", "abren", "cierra", "cierran", "atencion",
+                   "biblioteca", "secretaria", "administrativo", "administrativa", "administracion")
+
+
+class RulesBackend:
+    """Las reglas del RAGSystem que van ANTES de buscar en documentos, sin cargar modelos.
+
+    Mismo orden que RAGSystem.process_query: Q&A fijo → dato curioso / chiste →
+    dirección de las sedes → textos de 04_KNOWLEDGE_CORE/knowledge-text (horarios,
+    contacto, identidad). Solo stdlib: arranca en milisegundos y no necesita
+    torch, faiss ni PyPDF2. La búsqueda en documentos la hace NormativaBackend.
+    """
+
+    name = "rules"
+
+    def __init__(self, repo_root: str | os.PathLike | None = None) -> None:
+        self._repo_root = repo_root
+        self._lock = threading.Lock()
+        self._bqa = None
+        self._lr = None
+        self._conv = None
+
+    @property
+    def ready(self) -> bool:
+        return self._bqa is not None
+
+    def warmup(self) -> None:
+        with self._lock:
+            if self._bqa is not None:
+                return
+            root = find_repo_root(self._repo_root)
+            add_to_syspath(root / "01_SERVICES" / "rag-engine", root / "04_KNOWLEDGE_CORE")
+            import load_responses as lr  # type: ignore[import-not-found]
+            from basic_qa_manager import BasicQAManager  # type: ignore[import-not-found]
+            from conversational_answer import conversational_from_context  # type: ignore[import-not-found]
+
+            self._lr, self._conv = lr, conversational_from_context
+            self._bqa = BasicQAManager(qa_data=lr.qa_data())
+
+    def answer(
+        self,
+        req: ThinkRequest,
+        history: list[Turn],
+        cancel: CancelToken,
+        on_partial: PartialCallback | None = None,
+    ) -> BackendAnswer | None:
+        if self._bqa is None:
+            self.warmup()
+        lr, q = self._lr, req.text
+        basic = self._bqa.find_basic_answer(q)
+        if basic and basic.get("answer"):
+            try:
+                text = self._bqa.format_answer(basic["answer"])
+            except Exception:  # noqa: BLE001
+                text = basic["answer"]
+            return BackendAnswer(text, basic.get("emotion", "helpful"), "basic_qa", detail="basic_qa")
+        fun = lr.match_fun_request(q)
+        if fun == "curious_fact":
+            return BackendAnswer(lr.random_fun_fact(), "happy", "basic_qa", detail="fun_fact")
+        if fun == "joke":
+            return BackendAnswer(lr.random_joke(), "happy", "basic_qa", detail="fun_joke")
+        is_address = _has_word(q, _ADDRESS_WORDS) and _has_word(q, _UNI_WORDS + _WHERE_WORDS)
+        if is_address:
+            addr = lr.spoken_udit_address()
+            if addr:
+                return BackendAnswer(addr, "informative", "rag_local", detail="knowledge_address")
+        know = lr.match_knowledge_text(q)
+        if know and know[1] == "knowledge_address" and not is_address:
+            know = None  # "¿cuánto cuesta el parking del campus?" no es una pregunta por la dirección
+        if know and know[1] == "knowledge_horarios" and not _has_word(q, _SCHEDULE_WORDS):
+            know = None  # "¿cuántas horas es un crédito?" no es una pregunta de horarios
+        if know:
+            text, src = know
+            if src == "knowledge_horarios":
+                body = lr.read_knowledge_file("udit_horarios.txt")
+                text = self._conv(q, body) if body else ""
+            if text:
+                emotion = "informative" if "address" in src else "helpful"
+                return BackendAnswer(text, emotion, "rag_local", detail=src)
+        return None
+
+
 class LegacyRagBackend:
     name = "rag_local"
 

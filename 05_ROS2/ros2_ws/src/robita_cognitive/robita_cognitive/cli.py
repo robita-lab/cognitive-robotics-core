@@ -2,7 +2,8 @@
 
   python -m robita_cognitive.cli "¿quién eres?"          # una pregunta
   python -m robita_cognitive.cli                          # modo interactivo
-  python -m robita_cognitive.cli --no-rag "hola"          # solo respuestas fijas
+  python -m robita_cognitive.cli --no-rag "hola"          # solo reglas / respuestas fijas
+  python -m robita_cognitive.cli --rag legacy "..."       # RAGSystem antiguo (torch)
 """
 
 from __future__ import annotations
@@ -19,7 +20,9 @@ from .factory import EngineConfig, build_engine
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("question", nargs="*", help="pregunta; sin argumentos = interactivo")
-    ap.add_argument("--no-rag", action="store_true", help="no cargar el RAG (solo basic_qa)")
+    ap.add_argument("--rag", default="normativa", choices=["normativa", "legacy", "none"],
+                    help="búsqueda en documentos (por defecto normativa)")
+    ap.add_argument("--no-rag", action="store_true", help="atajo de --rag none")
     ap.add_argument("--repo-root", default="")
     ap.add_argument("--rag-config", default="")
     ap.add_argument("-v", "--verbose", action="store_true")
@@ -27,7 +30,8 @@ def main(argv: list[str] | None = None) -> int:
     logging.basicConfig(level=logging.INFO if args.verbose else logging.WARNING)
 
     engine = build_engine(
-        EngineConfig(repo_root=args.repo_root, use_rag=not args.no_rag, rag_config=args.rag_config)
+        EngineConfig(repo_root=args.repo_root, rag_backend="none" if args.no_rag else args.rag,
+                     rag_config=args.rag_config)
     )
     # En la CLI cargamos todo antes de preguntar (en el nodo es en segundo plano).
     for b in engine.local:
