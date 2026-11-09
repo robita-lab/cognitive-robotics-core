@@ -8,8 +8,8 @@ Plan: `docs/PLAN_COGNITIVE_RAG_LLM.md` · Evaluación del RAG: `docs/RAG_NORMATI
 ```
 C.C. / BT ──Think──► cognitive_node ──► CognitiveEngine (robita_cognitive.core, Python puro)
 C.C. actual ─topics─►                    ├─ memoria por session_id (fuente de verdad, D5)
-                                         ├─ local: rules → normativa   (sin red)
-                                         └─ remoto (P2): llm-engine por HTTP
+                                         ├─ local: rules → normativa → scope_guard   (sin red)
+                                         └─ remoto: llm-engine /v2/turn (SSE, clave de API)
 ```
 
 ## Backends locales (`rag_backend`)
@@ -19,6 +19,30 @@ C.C. actual ─topics─►                    ├─ memoria por session_id (fu
 | `normativa` (defecto) | `rules` (respuestas fijas, chistes, sedes, horarios: las reglas del rag-engine, sin modelos) + `normativa` (índice por artículos con e5-small ONNX; responde citando el artículo o se abstiene) | numpy, onnxruntime, tokenizers |
 | `legacy` | `RAGSystem` completo de `01_SERVICES/rag-engine` (lo que usa `./UDITO`) | torch, sentence-transformers, faiss, PyPDF2 |
 | `none` | solo `rules` | stdlib |
+
+Tras ellos va `scope_guard` (desactivable con `scope_guard:=false`): si la
+pregunta es sobre UDIT y nadie local la sabe, responde "no tengo ese dato" en
+vez de pasarla al LLM, que se inventaría cafeterías o precios.
+
+## Backend remoto: LLM del servidor
+
+Se activa con `ROBITA_LLM_URL` (o el parámetro `llm_url`) y la clave en
+`ROBITA_LLM_API_KEY`. Llama a `POST /v2/turn` del `llm-engine`
+(`01_SERVICES/llm-engine/README.md`). Solo stdlib (`http.client`).
+
+| Situación | Qué pasa |
+|---|---|
+| Respuesta fija (reglas) | Se dice tal cual; no se llama al LLM |
+| La normativa encuentra artículo | Se manda al LLM con los 3 fragmentos como contexto → `llm_server:grounded:normativa:ACC:7@…` |
+| Pregunta general | LLM sin contexto → `llm_server:open` |
+| Pregunta de UDIT sin dato | `scope_guard`, sin LLM |
+| Servidor caído / timeout / 401 | Respuesta local (la frase de la normativa o el respaldo); el servidor se da por caído 30 s y ni se intenta |
+| El stream se corta a mitad | Se devuelve lo ya dicho (`llm_server:truncated`), no se mezcla con otra respuesta |
+| Se cancela `Think` o llega otro goal | Se cierra el socket; el servidor aborta la generación en Ollama |
+
+- El robot manda el historial de la sesión en cada turno (la memoria vive aquí, D5).
+- Cada frase completa del stream sale como feedback de `Think`.
+- Tiempos: `ROBITA_LLM_TIMEOUT` (primer token, 8 s por defecto; con LLM en CPU, subirlo), `ROBITA_LLM_MAX_TOKENS` (120).
 
 ## Estructura
 
@@ -56,7 +80,8 @@ Para usarlo con el C.C. de Danilo: lanzar este nodo **en lugar de**
 ## Parámetros
 
 Ver `config/cognitive.yaml`: `rag_backend`, `index_dir`, `repo_root` (o
-`$ROBITA_REPO_ROOT`), `memory_turns`, `memory_ttl_s`. El modelo se busca en
+`$ROBITA_REPO_ROOT`), `memory_turns`, `memory_ttl_s`, `llm_url`,
+`llm_timeout_s`, `llm_max_tokens`, `scope_guard`. El modelo se busca en
 `$ROBITA_MODELS_DIR` (por defecto `~/.cache/robita/models`).
 
 ## Probar sin ROS
@@ -64,7 +89,7 @@ Ver `config/cognitive.yaml`: `rag_backend`, `index_dir`, `repo_root` (o
 ```bash
 cd 05_ROS2/ros2_ws/src/robita_cognitive
 UV="uv run --no-project --with numpy --with onnxruntime --with tokenizers"
-$UV --with pytest python -m pytest -q test/          # 43 tests, sin modelo
+$UV --with pytest python -m pytest -q test/          # 55 tests, sin modelo ni servidor
 $UV python -m robita_cognitive.tools.fetch_model     # una vez, con red (~490 MB)
 $UV python -m robita_cognitive.cli "¿Tengo que traducir mis documentos?"
 $UV python -m robita_cognitive.tools.eval_index -v   # mide el índice con el banco de preguntas
@@ -92,7 +117,9 @@ docker run --rm --network none -v "$PWD:/repo:ro" robita-cognitive:humble \
 ```
 
 `e2e.sh` compila los dos paquetes, lanza el nodo, hace preguntas por `Think` e
-imprime la memoria del nodo. Para el backend `legacy`: imagen con
+imprime la memoria del nodo. Con el `llm-engine` levantado en el host,
+`e2e_llm.sh` prueba los casos del LLM (general, normativa, memoria, servidor
+caído, cancelación e interrupción por otro goal); ver su cabecera. Para el backend `legacy`: imagen con
 `--build-arg LEGACY_RAG=1` (~2,2 GB) y ver el comentario de `e2e.sh`.
 
 ## En la Jetson (pendiente de acceso)
@@ -113,9 +140,11 @@ Solo para `legacy`: instalar torch con pip trae un `setuptools` que rompe
 - **Respuestas extractivas:** el artículo es el correcto en el 78 % (95 % entre
   los 3 primeros), pero la frase elegida no siempre contesta exactamente.
   Siguiente paso: fichas por artículo revisadas por una persona (`docs/RAG_NORMATIVA.md` §6) y LLM del servidor (P2).
-- **Cancelación:** se comprueba entre backends; la cancelación real (cerrar el
-  stream del LLM) llega con P2. Las rutas de cancelar/interrumpir del servidor
-  `Think` aún no se han probado con un backend lento.
+- **Cancelación local:** la búsqueda local no se interrumpe a mitad (tarda
+  milisegundos); la del LLM sí (se cierra el stream).
+- **Modelo pequeño:** con `qwen2.5:3b` el LLM comete errores de español y de
+  datos ("el Apolo llegó a Marte") y a veces no usa un fragmento que sí
+  contiene la respuesta. Hace falta medir con un 7B en GPU (servidor).
 - **Segfaults aleatorios de Python en contenedores `ros:humble` del portátil de
   desarrollo** (también en `colcon build`); no en el host. Si una prueba en
   Docker muere con `Segmentation fault`, repetirla. Comprobar en la Jetson.

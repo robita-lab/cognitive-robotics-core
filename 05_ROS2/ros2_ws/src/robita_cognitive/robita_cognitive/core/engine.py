@@ -5,9 +5,10 @@ Reglas (D4/D5 del documento de consenso):
 1. Se prueban en orden los backends locales (los del robot). Gana el primero
    que devuelve respuesta. Un backend que no está listo devuelve None y se
    salta sin esperar.
-2. Si la respuesta local es "pregunta general" (delegate=True), o nadie
+2. Si la respuesta local pide ayuda (delegate=True: pregunta general, o
+   normativa que conviene redactar con sus fragmentos en `context`), o nadie
    local sabe contestar, y hay backend remoto (LLM del servidor), se le pasa
-   el turno con el historial de la sesión.
+   el turno con el historial de la sesión y la respuesta local como base.
 3. Si el remoto falla o no existe, vale la respuesta local; si tampoco hay,
    la frase de respaldo.
 4. La respuesta se emite por frases (on_partial) y se guarda en la memoria
@@ -125,7 +126,7 @@ class CognitiveEngine:
             tried.append(self.remote.name)
             before = emitted
             try:
-                final = self.remote.answer(req, history, cancel, on_partial=emit)
+                final = self.remote.answer(req, history, cancel, on_partial=emit, local=local_ans)
             except Exception:  # noqa: BLE001
                 log.exception("backend remoto %s falló", self.remote.name)
                 final = None

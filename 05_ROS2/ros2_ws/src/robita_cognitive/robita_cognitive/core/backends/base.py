@@ -29,6 +29,9 @@ class Backend(Protocol):
     ) -> BackendAnswer | None:
         """Respuesta, o None si este backend no sabe/no puede contestar.
 
+        El backend remoto recibe además `local=` (la respuesta local, con sus
+        fragmentos en `context`) para redactar a partir de ella.
+
         Un backend que emita frases por streaming (on_partial) debe devolver
         al final la respuesta completa igualmente.
         """

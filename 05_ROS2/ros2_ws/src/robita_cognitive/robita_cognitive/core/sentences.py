@@ -34,12 +34,21 @@ class SentenceAccumulator:
         self._buf = ""
 
     def feed(self, chunk: str) -> list[str]:
+        """Devuelve las frases que ya están completas; el resto queda en el búfer tal cual.
+
+        Se corta sobre el texto en bruto (sin normalizar espacios) para no
+        pegar palabras: "Estoy " + "en" debe seguir siendo "Estoy en".
+        """
         self._buf += chunk
-        sentences = split_sentences(self._buf)
-        if len(sentences) <= 1:
+        cut = None
+        for m in _SPLIT.finditer(self._buf):
+            before = self._buf[:m.start()].rstrip("\"»)]")
+            if not any(before.endswith(f"{a}.") for a in _ABBREV):
+                cut = m
+        if cut is None:
             return []
-        self._buf = sentences[-1]
-        return sentences[:-1]
+        head, self._buf = self._buf[:cut.start()], self._buf[cut.end():]
+        return split_sentences(head)
 
     def flush(self) -> list[str]:
         rest = split_sentences(self._buf)

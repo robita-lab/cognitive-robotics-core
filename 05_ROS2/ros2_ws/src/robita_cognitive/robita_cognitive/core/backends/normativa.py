@@ -135,7 +135,18 @@ class NormativaBackend:
         if cancel.cancelled:
             return None
         text, hit = self.compose(req.text, hits, q)
+        # delegate=True: si hay LLM en el servidor, que redacte a partir de los
+        # fragmentos recuperados (mejor que una frase literal); si no, vale la extractiva.
         return BackendAnswer(
-            text=text, emotion="helpful", source="rag_local",
+            text=text, emotion="helpful", source="rag_local", delegate=True,
             detail=f"normativa:{hit.chunk.unit}@{self.index.manifest.get('fingerprint', '')}",
+            context=[self.passage(h) for h in hits],
         )
+
+    @staticmethod
+    def passage(h: Hit) -> dict:
+        c = h.chunk
+        code, _, n = c.unit.partition(":")
+        where = f", artículo {n}" if n and n != "0" and code in {"ACC", "RAC", "CON"} else ""
+        title = c.title[0].upper() + c.title[1:] if c.title else c.doc
+        return {"source": f"normativa:{c.unit}", "title": f"{title}{where}", "text": c.text}

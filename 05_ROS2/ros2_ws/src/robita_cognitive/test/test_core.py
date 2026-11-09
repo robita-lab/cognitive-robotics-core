@@ -34,8 +34,9 @@ class FakeBackend:
     def warmup(self):
         self._ready = True
 
-    def answer(self, req, history, cancel, on_partial=None):
+    def answer(self, req, history, cancel, on_partial=None, local=None):
         self.calls.append((req, list(history)))
+        self.local_seen = local
         if self._on_call:
             self._on_call(cancel)
         if self._raises:
@@ -64,6 +65,15 @@ def test_split_sentences_keeps_decimals_and_abbrev():
 
 def test_split_sentences_empty():
     assert split_sentences("   ") == []
+
+
+def test_sentence_accumulator_keeps_spaces_between_tokens():
+    acc = SentenceAccumulator()
+    out = []
+    for tok in ["Estoy ", "en ", "Madrid. ", "Lo ", "dijo ", "el ", "Dr. ", "Pérez. ", "Fin"]:
+        out += acc.feed(tok)
+    out += acc.flush()
+    assert out == ["Estoy en Madrid.", "Lo dijo el Dr. Pérez.", "Fin"]
 
 
 def test_sentence_accumulator_streams_complete_sentences():
@@ -211,3 +221,28 @@ def test_map_legacy_result(src, expected, delegate):
 def test_map_legacy_error_is_none():
     assert map_legacy_result({"answer": "Lo siento", "source": "error"}) is None
     assert map_legacy_result({"answer": "", "source": "rag"}) is None
+
+
+def test_remote_receives_local_answer_with_context():
+    ctx = [{"source": "normativa:ACC:7", "title": "Acceso, artículo 7", "text": "traducción jurada"}]
+    a = FakeBackend("normativa", BackendAnswer("Según el artículo 7...", source="rag_local", delegate=True, context=ctx))
+    remote = FakeBackend("llm", BackendAnswer("Sí, con traducción jurada.", source="llm_server"))
+    r = CognitiveEngine([a], remote=remote).think(req("¿traducción?"))
+    assert r.source == "llm_server"
+    assert remote.local_seen is not None and remote.local_seen.context == ctx
+
+
+def test_scope_guard_only_for_udit_questions():
+    from robita_cognitive.core.backends import ScopeGuardBackend
+    from robita_cognitive.core.backends.scope import mentions_udit
+
+    assert mentions_udit("¿Hay cafetería en la universidad?")
+    assert mentions_udit("¿Cuánto cuesta la matrícula?")
+    assert not mentions_udit("¿Qué es un agujero negro?")
+    assert not mentions_udit("¿Qué tiempo hará mañana?")
+    remote = FakeBackend("llm", BackendAnswer("Hay un comedor universitario...", source="llm_server"))
+    eng = CognitiveEngine([FakeBackend("normativa", None), ScopeGuardBackend()], remote=remote)
+    r = eng.think(req("¿Hay cafetería en la universidad?"))
+    assert (r.source, r.detail) == ("fallback", "scope_guard") and remote.calls == []
+    r = eng.think(req("¿Qué es un agujero negro?"))
+    assert r.source == "llm_server"

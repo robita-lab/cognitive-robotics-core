@@ -40,6 +40,9 @@ class BackendAnswer:
     model_id: str = ""
     delegate: bool = False
     detail: str = ""  # origen fino del backend (p. ej. "knowledge_horarios"), para trazas
+    # Fragmentos en los que se basa (para que el LLM remoto redacte a partir de ellos):
+    # [{"source": "normativa:ACC:7", "title": "...", "text": "..."}]
+    context: list[dict] = field(default_factory=list)
 
 
 @dataclass
@@ -66,6 +69,10 @@ class CancelToken:
     @property
     def cancelled(self) -> bool:
         return self._event.is_set()
+
+    def wait(self, timeout: float | None = None) -> bool:
+        """Bloquea hasta que se cancele (o venza timeout). Devuelve si está cancelado."""
+        return self._event.wait(timeout)
 
 
 # Callback de streaming: (frase, índice). Lo usa el servidor Think para publicar feedback.

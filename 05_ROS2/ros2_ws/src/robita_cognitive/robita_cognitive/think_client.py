@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+import time
 import uuid
 
 import rclpy
@@ -41,7 +42,7 @@ def main(argv: list[str] | None = None) -> int:
     goal.text = " ".join(args.text)
 
     def on_feedback(msg) -> None:
-        print(f"  [{msg.feedback.index}] {msg.feedback.partial_text}")
+        print(f"  [{msg.feedback.index}] {msg.feedback.partial_text}", flush=True)
 
     send = client.send_goal_async(goal, feedback_callback=on_feedback)
     rclpy.spin_until_future_complete(node, send, timeout_sec=args.timeout)
@@ -50,7 +51,10 @@ def main(argv: list[str] | None = None) -> int:
         print("goal rechazado", file=sys.stderr)
         return 3
     if args.cancel_after > 0:
-        rclpy.spin_once(node, timeout_sec=args.cancel_after)
+        end = time.monotonic() + args.cancel_after
+        while time.monotonic() < end:  # spin_once vuelve con cada mensaje: esperar el tiempo pedido
+            rclpy.spin_once(node, timeout_sec=max(0.01, end - time.monotonic()))
+        print(f"  (cancelando tras {args.cancel_after:.1f} s)", flush=True)
         rclpy.spin_until_future_complete(node, handle.cancel_goal_async(), timeout_sec=5.0)
     res_f = handle.get_result_async()
     rclpy.spin_until_future_complete(node, res_f, timeout_sec=args.timeout)

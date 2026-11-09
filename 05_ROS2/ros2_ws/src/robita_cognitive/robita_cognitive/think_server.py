@@ -46,6 +46,10 @@ class CognitiveNode(Node):
         p("rag_backend", "normativa")   # normativa | legacy | none
         p("index_dir", "")
         p("rag_config", "")
+        p("llm_url", "")                # vacío = $ROBITA_LLM_URL; sin URL todo es local
+        p("llm_timeout_s", 0.0)         # espera máxima al primer token; 0 = $ROBITA_LLM_TIMEOUT o 8 s
+        p("llm_max_tokens", 0)          # 0 = $ROBITA_LLM_MAX_TOKENS o 120
+        p("scope_guard", True)          # preguntas de UDIT sin respuesta local → "no tengo ese dato"
         p("rag_rebuild", False)
         p("memory_turns", 8)
         p("memory_ttl_s", 300.0)
@@ -56,13 +60,22 @@ class CognitiveNode(Node):
         p("topic_session_idle_s", 120.0)
         g = self.get_parameter
 
+        cfg_extra = {}
+        if g("llm_url").value:
+            cfg_extra["llm_url"] = g("llm_url").value
+        if g("llm_timeout_s").value > 0:
+            cfg_extra["llm_first_token_timeout_s"] = float(g("llm_timeout_s").value)
+        if g("llm_max_tokens").value > 0:
+            cfg_extra["llm_max_tokens"] = int(g("llm_max_tokens").value)
         self.engine = build_engine(
             EngineConfig(
+                **cfg_extra,
                 repo_root=g("repo_root").value,
                 use_rag=g("use_rag").value,
                 rag_backend=g("rag_backend").value,
                 index_dir=g("index_dir").value,
                 rag_config=g("rag_config").value,
+                scope_guard=g("scope_guard").value,
                 rag_rebuild=g("rag_rebuild").value,
                 memory_turns=g("memory_turns").value,
                 memory_ttl_s=g("memory_ttl_s").value,

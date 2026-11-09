@@ -2,10 +2,25 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import os
+from dataclasses import dataclass, field
 
 from .core import CognitiveEngine, ConversationMemory
-from .core.backends import BasicQaBackend, LegacyRagBackend, NormativaBackend, RulesBackend
+from .core.backends import (
+    BasicQaBackend,
+    LegacyRagBackend,
+    LlmServerBackend,
+    NormativaBackend,
+    RulesBackend,
+    ScopeGuardBackend,
+)
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        return float(os.getenv(name, default))
+    except ValueError:
+        return default
 
 
 @dataclass
@@ -22,6 +37,15 @@ class EngineConfig:
     memory_turns: int = 8
     memory_ttl_s: float = 300.0
     use_rag: bool = True         # compatibilidad: False equivale a rag_backend="none"
+    # LLM del servidor (P2). Vacío = sin backend remoto (todo local).
+    # La clave es mejor pasarla por entorno (ROBITA_LLM_API_KEY) que por parámetro.
+    llm_url: str = field(default_factory=lambda: os.getenv("ROBITA_LLM_URL", ""))
+    llm_api_key: str = field(default_factory=lambda: os.getenv("ROBITA_LLM_API_KEY", ""))
+    llm_first_token_timeout_s: float = field(default_factory=lambda: _env_float("ROBITA_LLM_TIMEOUT", 8.0))
+    llm_max_tokens: int = field(default_factory=lambda: int(_env_float("ROBITA_LLM_MAX_TOKENS", 120)))
+    llm_retry_after_s: float = 30.0
+    # Preguntas sobre UDIT sin respuesta local → "no tengo ese dato" (no al LLM, que inventaría).
+    scope_guard: bool = True
 
 
 def build_engine(cfg: EngineConfig) -> CognitiveEngine:
@@ -38,5 +62,13 @@ def build_engine(cfg: EngineConfig) -> CognitiveEngine:
         local = [RulesBackend(root)]
     else:
         raise ValueError(f"rag_backend desconocido: {cfg.rag_backend!r} (normativa | legacy | none)")
+    if cfg.scope_guard:
+        local.append(ScopeGuardBackend())
     memory = ConversationMemory(max_turns=cfg.memory_turns, ttl_s=cfg.memory_ttl_s)
-    return CognitiveEngine(local=local, remote=None, memory=memory)
+    remote = None
+    if cfg.llm_url:
+        remote = LlmServerBackend(
+            cfg.llm_url, api_key=cfg.llm_api_key, first_token_timeout=cfg.llm_first_token_timeout_s,
+            max_tokens=cfg.llm_max_tokens, max_history=2 * cfg.memory_turns, retry_after_s=cfg.llm_retry_after_s,
+        )
+    return CognitiveEngine(local=local, remote=remote, memory=memory)
