@@ -62,13 +62,21 @@ C.C. / BT ──Think (acción, cancelable)──► robita_cognitive   (robot, 
 - [ ] Comprobar `robita_interfaces` también en Jazzy.
 
 ### P1 — Cognitivo en local, sin servidor (prioridad)
-- `cognitive_core`: router, memoria por `session_id`, backends `basic_qa` y
-  `rag_local`.
-- Embeddings multilingües pequeños (p. ej.
-  `paraphrase-multilingual-MiniLM-L12-v2`); versión del índice fijada.
-- `robita_cognitive`: servidor `Think` + adaptador de topics + launch file.
-- **Salida:** la demo responde preguntas de UDIT por ROS, sin WiFi (en
-  contenedor).
+- [x] Núcleo en Python puro (`robita_cognitive.core`): motor con enrutado
+      local → remoto, memoria por `session_id`, troceo en frases, 27 tests.
+      Los backends `rag_local` y `basic_qa` **envuelven el rag-engine actual**
+      (paridad con `./UDITO`, condición 1 de Danilo).
+- [x] Paquete `robita_cognitive`: servidor `Think` (feedback por frases, un
+      goal nuevo interrumpe al anterior) + adaptador a
+      `/udito/cognitive/query|answer` + launch + `config/cognitive.yaml`.
+- [x] **Salida (2026-11-09):** en `ros:humble` con `--network none`, el nodo
+      responde por `Think` horarios, sedes, normativa, chistes y saludos
+      (`docker/e2e.sh`).
+- [ ] Embeddings multilingües pequeños (p. ej.
+      `paraphrase-multilingual-MiniLM-L12-v2`); versión del índice fijada.
+      Hoy las respuestas de normativa salen como fragmentos cortados.
+- [ ] Probar con el C.C. de Danilo (`use_cognitive:=true`) cuando su rama
+      esté al día con `develop`.
 
 ### P2 — Servidor
 - `llm-engine` sin estado: el robot envía el historial en cada petición.
