@@ -72,9 +72,15 @@ C.C. / BT ──Think (acción, cancelable)──► robita_cognitive   (robot, 
 - [x] **Salida (2026-11-09):** en `ros:humble` con `--network none`, el nodo
       responde por `Think` horarios, sedes, normativa, chistes y saludos
       (`docker/e2e.sh`).
-- [ ] Embeddings multilingües pequeños (p. ej.
-      `paraphrase-multilingual-MiniLM-L12-v2`); versión del índice fijada.
-      Hoy las respuestas de normativa salen como fragmentos cortados.
+- [x] **Embeddings multilingües (2026-11-09):** `multilingual-e5-small` en
+      ONNX, un trozo por artículo, índice versionado en
+      `04_KNOWLEDGE_CORE/indexes/normativa/`, construido fuera del robot.
+      hit@1 0,25 → 0,78; hit@3 0,55 → 0,95; abstención fiable (AUC 0,99).
+      Backend por defecto `normativa` + `rules`, sin torch. Evaluación y
+      comparación con hypatia en `docs/RAG_NORMATIVA.md`.
+- [ ] Fichas por artículo (respuesta hablada + preguntas que responde),
+      generadas fuera del robot y revisadas por una persona
+      (`docs/RAG_NORMATIVA.md` §6).
 - [ ] Probar con el C.C. de Danilo (`use_cognitive:=true`) cuando su rama
       esté al día con `develop`.
 
