@@ -38,6 +38,7 @@ Se activa con `ROBITA_LLM_URL` (o el parámetro `llm_url`) y la clave en
 | Pregunta de UDIT sin dato | `scope_guard`, sin LLM |
 | Servidor caído / timeout / 401 | Respuesta local (la frase de la normativa o el respaldo); el servidor se da por caído 30 s y ni se intenta |
 | El stream se corta a mitad | Se devuelve lo ya dicho (`llm_server:truncated`), no se mezcla con otra respuesta |
+| El LLM cambia de alfabeto (p. ej. al chino) | Se corta ahí y se queda lo dicho (`llm_server:script_cut`) |
 | Se cancela `Think` o llega otro goal | Se cierra el socket; el servidor aborta la generación en Ollama |
 
 - El robot manda el historial de la sesión en cada turno (la memoria vive aquí, D5).
@@ -52,7 +53,8 @@ Se activa con `ROBITA_LLM_URL` (o el parámetro `llm_url`) y la clave en
 | `robita_cognitive/core/embeddings.py` | e5-small en ONNX Runtime (revisión del modelo fijada). |
 | `robita_cognitive/core/knowledge.py` | Índice de conocimiento: carga, búsqueda densa/híbrida, BM25. |
 | `robita_cognitive/core/backends/` | `rules`, `normativa`, `legacy`. |
-| `robita_cognitive/tools/` | `fetch_model` (descarga el modelo), `build_index`, `eval_index`. |
+| `robita_cognitive/tools/` | `fetch_model` (descarga el modelo), `build_index`, `eval_index`, `eval_llm` (motor completo con el LLM). |
+| `robita_cognitive/core/speech_filter.py` | Limpia cada frase del LLM antes del TTS: marcas de fragmento, markdown, URLs; corta si cambia de alfabeto. |
 | `robita_cognitive/think_server.py` | Nodo ROS 2 (`cognitive_node`): acción `Think` + adaptador de topics. |
 | `robita_cognitive/think_client.py` | Cliente de prueba de `Think`. |
 | `robita_cognitive/cli.py` | Prueba el motor sin ROS. |
@@ -89,7 +91,7 @@ Ver `config/cognitive.yaml`: `rag_backend`, `index_dir`, `repo_root` (o
 ```bash
 cd 05_ROS2/ros2_ws/src/robita_cognitive
 UV="uv run --no-project --with numpy --with onnxruntime --with tokenizers"
-$UV --with pytest python -m pytest -q test/          # 55 tests, sin modelo ni servidor
+$UV --with pytest python -m pytest -q test/          # 69 tests, sin modelo ni servidor
 $UV python -m robita_cognitive.tools.fetch_model     # una vez, con red (~490 MB)
 $UV python -m robita_cognitive.cli "¿Tengo que traducir mis documentos?"
 $UV python -m robita_cognitive.tools.eval_index -v   # mide el índice con el banco de preguntas
@@ -142,9 +144,10 @@ Solo para `legacy`: instalar torch con pip trae un `setuptools` que rompe
   Siguiente paso: fichas por artículo revisadas por una persona (`docs/RAG_NORMATIVA.md` §6) y LLM del servidor (P2).
 - **Cancelación local:** la búsqueda local no se interrumpe a mitad (tarda
   milisegundos); la del LLM sí (se cierra el stream).
-- **Modelo pequeño:** con `qwen2.5:3b` el LLM comete errores de español y de
-  datos ("el Apolo llegó a Marte") y a veces no usa un fragmento que sí
-  contiene la respuesta. Hace falta medir con un 7B en GPU (servidor).
+- **Modelo del servidor:** `qwen3:4b-instruct-2507` en GPU (evaluación en
+  `docs/RAG_NORMATIVA.md` §8). Con modelos en CPU (o el 3B antiguo) la
+  latencia sube a >10 s y la calidad baja: subir `ROBITA_LLM_TIMEOUT` y no
+  usarlo con público.
 - **Segfaults aleatorios de Python en contenedores `ros:humble` del portátil de
   desarrollo** (también en `colcon build`); no en el host. Si una prueba en
   Docker muere con `Segmentation fault`, repetirla. Comprobar en la Jetson.

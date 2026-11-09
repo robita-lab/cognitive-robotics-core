@@ -177,3 +177,47 @@ def test_engine_falls_back_to_local_when_server_down():
     r = eng.think(req("¿traducción?"))
     assert r.source == "rag_local" and r.text == local.text
     assert r.backends_tried == ["normativa", "llm_server"]
+
+
+# ------------------------------------------------------------------ filtro de voz
+from robita_cognitive.core.speech_filter import clean_sentence  # noqa: E402
+
+
+@pytest.mark.parametrize(("raw", "clean"), [
+    ("Según [1], la matrícula no es reembolsable.", "La matrícula no es reembolsable."),
+    ("Equivale a 25 horas, según el fragmento [1] y [3].", "Equivale a 25 horas."),
+    ("Según el documento [2], no se devuelve.", "No se devuelve."),
+    ("Según el artículo 7 de la normativa, sí.", "Según el artículo 7 de la normativa, sí."),
+    ("Necesitas el título (1) y las notas (2).", "Necesitas el título y las notas."),
+    ("Un crédito son 25 horas, según el fragmento 2.", "Un crédito son 25 horas."),
+    ("Sin marcas, todo bien.", "Sin marcas, todo bien."),
+    ("El *Quijote* lo escribió **Cervantes**.", "El Quijote lo escribió Cervantes."),
+    ("Necesitas: - El título. - La credencial.", "Necesitas: El título. La credencial."),
+    ("Más en la web unedasiss.uned.es/home y ya.", "Más en la web y ya."),
+    ("Son 25 horas, sin guiones-raros.", "Son 25 horas, sin guiones-raros."),
+])
+def test_clean_sentence_markers(raw, clean):
+    assert clean_sentence(raw) == (clean, False)
+
+
+def test_clean_sentence_cuts_foreign_script():
+    s, cut = clean_sentence("Además, genera y转让协议 The Share Transfer Agreement")
+    assert cut and "转" not in s and "Share" not in s
+    s, cut = clean_sentence("La misión de UDIT es formar profesionales creativos y转让")
+    assert cut and s == "La misión de UDIT es formar profesionales creativos."
+
+
+def test_foreign_script_stops_stream_and_keeps_what_was_said(server):
+    server.reply = "La misión es formar profesionales. Además genera y转让协议 The Share Transfer Agreement is long."
+    parts = []
+    ans = LlmServerBackend(server.url).answer(req(), [], CancelToken(), on_partial=lambda s, i: parts.append(s))
+    assert ans.detail == "llm_server:script_cut"
+    assert parts == ["La misión es formar profesionales."] and ans.text == parts[0]
+    b = LlmServerBackend(server.url)
+    assert b.available  # no es culpa del servidor: no se marca como caído
+
+
+def test_returned_text_is_what_was_spoken(server):
+    server.reply = "Según [1], son 25 horas. Fin de la respuesta."
+    ans = LlmServerBackend(server.url).answer(req(), [], CancelToken())
+    assert ans.text == "Son 25 horas. Fin de la respuesta."

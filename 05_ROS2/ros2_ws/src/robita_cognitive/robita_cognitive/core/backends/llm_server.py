@@ -25,6 +25,7 @@ import time
 from urllib.parse import urlsplit
 
 from ..sentences import SentenceAccumulator
+from ..speech_filter import clean_sentence
 from ..types import BackendAnswer, CancelToken, PartialCallback, ThinkRequest, Turn
 
 log = logging.getLogger("robita_cognitive.llm_server")
@@ -32,6 +33,10 @@ log = logging.getLogger("robita_cognitive.llm_server")
 
 class LlmServerError(Exception):
     pass
+
+
+class _ForeignScript(Exception):
+    """El LLM ha saltado a otro alfabeto: se corta el stream (no es un fallo del servidor)."""
 
 
 class LlmServerBackend:
@@ -157,9 +162,13 @@ class LlmServerBackend:
         conn: http.client.HTTPConnection | None = None
 
         def emit(sentence: str) -> None:
-            emitted.append(sentence)
-            if on_partial is not None and not cancel.cancelled:
-                on_partial(sentence, len(emitted) - 1)
+            sentence, cut = clean_sentence(sentence)
+            if sentence:
+                emitted.append(sentence)
+                if on_partial is not None and not cancel.cancelled:
+                    on_partial(sentence, len(emitted) - 1)
+            if cut:
+                raise _ForeignScript()
 
         def watch_cancel() -> None:
             while not finished.is_set():
@@ -208,6 +217,13 @@ class LlmServerBackend:
                 raise LlmServerError("el stream terminó sin evento done")
             for s in acc.flush():
                 emit(s)
+        except _ForeignScript:
+            log.warning("[%s/%s] el LLM cambió de alfabeto; corto tras %d frases", req.session_id, req.turn_id,
+                        len(emitted))
+            if not emitted:
+                return None
+            return BackendAnswer(" ".join(emitted), local.emotion if grounded else "helpful", "llm_server",
+                                 model_id=model, detail="llm_server:script_cut")
         except (OSError, http.client.HTTPException, ValueError, LlmServerError) as exc:
             if cancel.cancelled:
                 log.info("[%s/%s] petición al LLM cancelada", req.session_id, req.turn_id)
@@ -222,7 +238,8 @@ class LlmServerBackend:
             if conn is not None:
                 conn.close()
 
-        text = (final_text or "".join(collected)).strip()
+        # Lo que se devuelve (y se guarda en memoria) es exactamente lo que se ha dicho.
+        text = " ".join(emitted).strip()
         if not text:
             return None
         detail = f"llm_server:grounded:{local.detail}" if grounded else "llm_server:open"

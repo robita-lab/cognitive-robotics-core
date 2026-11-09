@@ -9,6 +9,8 @@
 # Casos: (1) pregunta general → LLM sin contexto; (2) normativa → LLM con los
 # fragmentos; (3) servidor caído → respuesta local; (4) cancelación a mitad.
 # ROBITA_LLM_TIMEOUT alto si el LLM corre en CPU (por defecto aquí 40 s).
+# CANCEL_AFTER / BARGE_DELAY (s): cuándo cancelar y cuándo lanzar el segundo goal; los
+# valores por defecto son para LLM en GPU (respuestas de ~1,5 s). En CPU: 5 y 3.
 set -e
 mkdir -p /ws/src
 cp -r /repo/05_ROS2/ros2_ws/src/robita_interfaces /repo/05_ROS2/ros2_ws/src/robita_cognitive /ws/src/
@@ -16,7 +18,8 @@ cd /ws && source /opt/ros/$ROS_DISTRO/setup.bash
 colcon build --packages-select robita_interfaces robita_cognitive > /tmp/build.log 2>&1 || { tail -30 /tmp/build.log; exit 1; }
 source install/setup.bash
 export ROBITA_REPO_ROOT=${ROBITA_REPO_ROOT:-/repo} PYTHONDONTWRITEBYTECODE=1 ROBITA_LLM_TIMEOUT=${ROBITA_LLM_TIMEOUT:-40}
-export ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}   # --network host: no mezclarse con otros nodos de la máquina
+export ROS_DOMAIN_ID=${ROS_DOMAIN_ID:-42}
+CANCEL_AFTER=${CANCEL_AFTER:-0.9}; BARGE_DELAY=${BARGE_DELAY:-0.3}   # --network host: no mezclarse con otros nodos de la máquina
 
 start_node() {  # $1 = URL del LLM
   ros2 run robita_cognitive cognitive_node --ros-args -p llm_url:="$1" > /tmp/node.log 2>&1 &
@@ -40,12 +43,12 @@ ask "(1) general → LLM" "¿Qué es un agujero negro?"
 ask "(2) normativa → LLM con fragmentos" "¿Tengo que traducir mis documentos si están en otro idioma?"
 ask "(2b) memoria de sesión" "¿Y si el documento es de Francia?"
 ask "(guarda) UDIT sin dato → sin LLM" "¿Hay cafetería en la universidad?"
-ask "(4) cancelación a los 5 s" --cancel-after 5.0 "Cuéntame con detalle la historia de la exploración espacial desde el Sputnik hasta hoy."
+ask "(4) cancelación a los $CANCEL_AFTER s" --cancel-after $CANCEL_AFTER "Cuéntame con detalle la historia de la exploración espacial desde el Sputnik hasta hoy."
 sleep 2
 echo; echo "== (5) un goal nuevo interrumpe al anterior (barge-in)"
 ros2 run robita_cognitive think_client --timeout 90 --session e2e "Explícame con detalle cómo funciona un motor de combustión." > /tmp/goal_a.log 2>&1 &
 A=$!
-sleep 3
+sleep $BARGE_DELAY
 ros2 run robita_cognitive think_client --timeout 90 --session e2e "hola" > /tmp/goal_b.log 2>&1
 wait $A || true
 echo "  goal A (largo): $(grep -a status= /tmp/goal_a.log)   [6 = ABORTED]"
