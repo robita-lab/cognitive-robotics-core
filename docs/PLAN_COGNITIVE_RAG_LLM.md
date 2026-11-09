@@ -85,14 +85,26 @@ C.C. / BT ──Think (acción, cancelable)──► robita_cognitive   (robot, 
       esté al día con `develop`.
 
 ### P2 — Servidor
-- `llm-engine` sin estado: el robot envía el historial en cada petición.
-  Clave de API. RAG completo en el mismo servicio (una sola GPU).
-- Backend `llm_server` con streaming: cada frase completa sale como
-  `partial_text` para que el TTS empiece con la primera.
-- Cancelar `Think` cierra el stream HTTP y el servidor deja de generar.
-- **Salida:** los 4 casos de respaldo vía `Think` (general → LLM,
-  UDIT → RAG, LLM caído → RAG, sin URL → local) y la cancelación detiene la
-  generación en el servidor.
+- [x] `llm-engine` **`POST /v2/turn` sin estado**: el robot manda historial y
+      fragmentos de normativa (`context`); SSE; clave de API
+      (`ROBITA_API_KEYS`). `/v1` se queda para `./UDITO`. 14 tests.
+- [x] Backend `llm_server` (stdlib): frases del stream → `partial_text`;
+      servidor caído → respuesta local y 30 s sin reintentar; stream cortado →
+      se devuelve lo ya dicho. La normativa pasa sus 3 fragmentos al LLM para
+      que redacte (arregla la "frase equivocada" de la respuesta extractiva).
+- [x] `scope_guard`: preguntas de UDIT sin respuesta local → "no tengo ese
+      dato", sin LLM (el 3B se inventaba la cafetería).
+- [x] **Salida (2026-11-09, `docker/e2e_llm.sh`, qwen2.5 3B en CPU):**
+      general → LLM, normativa → LLM con fragmentos, servidor caído → local,
+      sin URL → local; cancelar `Think` y un goal nuevo abortan la generación
+      en el servidor ("cancelado por el cliente tras 80 trozos").
+- [ ] **Medir con 7B en GPU.** En CPU con 3B la primera frase con fragmentos
+      tarda 12–14 s (≈1000 tokens de contexto) y la calidad es floja. El
+      Docker de este portátil no tiene `nvidia-container-toolkit`; probar en
+      el servidor (Quadro RTX 4000) o instalarlo aquí.
+- [ ] RAG completo en el servidor (más documentos, embeddings mayores): hoy el
+      servidor usa los fragmentos que le manda el robot, que bastan para la
+      normativa actual.
 
 ### P3 — Preparar la Jetson y cerrar
 - Imagen/instrucciones arm64 y lista de pasos para la Jetson (colcon build,
