@@ -1,0 +1,14 @@
+# Parámetros de robita_cognitive. Ver README.md.
+robita_cognitive:
+  ros__parameters:
+    repo_root: ""                 # vacío = $ROBITA_REPO_ROOT o autodetectar
+    use_rag: true                 # false = solo respuestas fijas (arranque instantáneo)
+    rag_config: ""                # vacío = $ROBITA_RAG_CONFIG o rag-engine/config/rag_config.json
+    rag_rebuild: false
+    memory_turns: 8               # pares pregunta/respuesta por sesión
+    memory_ttl_s: 300.0           # sesión olvidada tras 5 min sin actividad
+    think_action: /udito/cognitive/think
+    topic_adapter: true           # compatibilidad con el C.C. de udito_ros
+    query_topic: /udito/cognitive/query
+    answer_topic: /udito/cognitive/answer
+    topic_session_idle_s: 120.0   # por topics no hay session_id: sesión nueva tras 2 min de silencio

@@ -1,0 +1,31 @@
+# Imagen de desarrollo/CI para robita_cognitive con el RAG local completo.
+# No copia el código: se monta el repo. Ver README.md («Probar sin Jetson»).
+#
+#   docker build -t robita-cognitive:humble -f docker/Dockerfile.humble docker/
+#
+# Para Jazzy (D19): --build-arg ROS_DISTRO=jazzy (Ubuntu 24.04 exige
+# --break-system-packages en pip; ver nota abajo).
+ARG ROS_DISTRO=humble
+FROM ros:${ROS_DISTRO}-ros-base
+
+ENV PIP_NO_CACHE_DIR=1 PIP_BREAK_SYSTEM_PACKAGES=1 HF_HOME=/opt/hf
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip python3-pytest \
+    && rm -rf /var/lib/apt/lists/*
+
+# Mismas dependencias que 01_SERVICES/rag-engine/requirements-jetson.txt (torch CPU).
+# numpy<2: los paquetes de ROS del sistema están compilados contra numpy 1.x.
+RUN pip3 install torch --index-url https://download.pytorch.org/whl/cpu \
+    && pip3 install "numpy<2" "sentence-transformers>=3.0.0" "faiss-cpu>=1.7.4" "PyPDF2>=3.0.0"
+
+# torch arrastra un setuptools de pip que rompe `colcon build` con el
+# `packaging` del sistema (TypeError ... strip_trailing_zero). Lo quitamos y
+# queda el de apt. OJO: en la Jetson pasa lo mismo si se instala torch con pip.
+RUN pip3 uninstall -y setuptools && python3 -c "import setuptools; print(setuptools.__file__)"
+
+# Modelo de embeddings dentro de la imagen: el robot debe funcionar sin red.
+ARG EMBEDDING_MODELS="sentence-transformers/all-MiniLM-L6-v2"
+RUN for m in ${EMBEDDING_MODELS}; do \
+      python3 -c "from sentence_transformers import SentenceTransformer as S; S('$m')"; \
+    done
+ENV HF_HUB_OFFLINE=1
