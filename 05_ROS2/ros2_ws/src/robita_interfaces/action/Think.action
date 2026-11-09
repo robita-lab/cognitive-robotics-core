@@ -1,0 +1,21 @@
+# Think — ejecutivo (C.C. / Behavior Tree) -> cognitive.  Ver D3 en
+# docs/ARQUITECTURA_CONSENSO.md.  Acción interrumpible: cancelar el goal debe
+# detener también la generación en curso (local o en el servidor).
+
+# --- Goal ---
+std_msgs/Header header   # stamp = instante en que el ejecutivo lanza el turno
+string session_id        # sesión de interacción (la memoria de conversación se indexa por aquí)
+string turn_id           # turno dentro de la sesión; enlaza STT -> Think -> TTS en la traza
+string text              # lo que ha dicho la persona (salida del STT o de la consola)
+string lang              # código BCP-47 ("es", "en"...); vacío = idioma por defecto del robot
+---
+# --- Result ---
+string text              # respuesta completa
+string emotion           # etiqueta para rostro/TTS (helpful, happy, sorry...)
+string source            # basic_qa | rag_local | rag_server | llm_local | llm_server | fallback
+string model_id          # modelo que generó la respuesta ("" si no aplica)
+float32 latency_ms       # desde que llega el goal hasta el resultado
+---
+# --- Feedback ---
+string partial_text      # frase completa lista para TTS (streaming por frases)
+uint32 index             # orden de la frase dentro de la respuesta (0, 1, 2...)
