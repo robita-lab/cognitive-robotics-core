@@ -52,7 +52,7 @@ Si corre en la propia Jetson, pon además `ROBITA_STOP_OLLAMA=0` y
 | POST | `/v1/chat` | `{conversation_id, user_text, max_tokens?}` → `{reply, model, tier}` |
 | POST | `/v1/chat/stream` | Igual, en SSE (`token` … `done`) |
 | GET / DELETE | `/v1/conversations/{id}` | Ver / borrar la memoria de una conversación |
-| POST | **`/v2/turn`** | Turno **sin estado** para `robita_cognitive` (ver abajo). Requiere clave de API |
+| POST | **`/v2/turn`** | Turno **sin estado** para `cognitive_language` (ver abajo). Requiere clave de API |
 
 `/v1` se mantiene para `./UDITO` (`llm_fallback.py`); guarda la memoria en el
 servidor. Lo nuevo va por `/v2`.
@@ -75,8 +75,8 @@ servidor. Lo nuevo va por `/v2`.
 - **Cancelación:** si el robot cierra la conexión, se aborta la petición a
   Ollama y se registra `cancelado por el cliente … generación abortada`.
 - **Clave:** `Authorization: Bearer <clave>` o `X-API-Key`. Claves en
-  `ROBITA_API_KEYS` (separadas por comas). Vacía = sin clave, solo para
-  desarrollo (el arranque lo avisa). El robot la recibe en `ROBITA_LLM_API_KEY`.
+  `LLM_API_KEYS` (separadas por comas). Vacía = sin clave, solo para
+  desarrollo (el arranque lo avisa). El robot la recibe en `COGNITIVE_LLM_API_KEY`.
 - Límites: `TURN_MAX_HISTORY` (16 mensajes), `TURN_MAX_CONTEXT_CHARS` (6000), `TURN_MAX_TOKENS_CAP` (400).
 
 Configuración por variables de entorno: ver `.env.example` y ARCHITECTURE.md §7.3.

@@ -28,7 +28,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     app.state.memory = await build_store(settings)
     if not settings.api_key_set:
-        log.warning("ROBITA_API_KEYS vacía: /v2 acepta peticiones sin clave (solo para desarrollo)")
+        log.warning("LLM_API_KEYS vacía: /v2 acepta peticiones sin clave (solo para desarrollo)")
 
     if settings.llm_warmup_on_start:
         try:

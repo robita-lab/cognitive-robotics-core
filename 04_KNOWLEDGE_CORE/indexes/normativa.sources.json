@@ -1,6 +1,6 @@
 {
   "name": "normativa",
-  "_doc": "Fuentes del índice de normativa de robita_cognitive. Tras cambiar un documento: python -m robita_cognitive.tools.build_index 04_KNOWLEDGE_CORE/indexes/normativa.sources.json y python -m robita_cognitive.tools.eval_index (ver 05_ROS2/ros2_ws/src/robita_cognitive/README.md). structure: articulos (ARTÍCULO N.), puntos (1. 2. 3.) o entero. title se lee en voz alta: 'Según el artículo 4 de la <title>'.",
+  "_doc": "Fuentes del índice de normativa de cognitive_language. Tras cambiar un documento: python -m cognitive_language.tools.build_index 04_KNOWLEDGE_CORE/indexes/normativa.sources.json y python -m cognitive_language.tools.eval_index (ver 05_ROS2/ros2_ws/src/cognitive_language/README.md). structure: articulos (ARTÍCULO N.), puntos (1. 2. 3.) o entero. title se lee en voz alta: 'Según el artículo 4 de la <title>'.",
   "embedding_model": "intfloat/multilingual-e5-small",
   "max_chars": 900,
   "min_score": 0.84,

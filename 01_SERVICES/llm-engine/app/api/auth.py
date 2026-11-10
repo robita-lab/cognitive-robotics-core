@@ -1,7 +1,7 @@
 """Clave de API para /v2 (D15: túnel WireGuard + clave de API).
 
 Cabecera `Authorization: Bearer <clave>` o `X-API-Key: <clave>`. Si
-ROBITA_API_KEYS está vacía no se exige clave (solo para desarrollo; el
+LLM_API_KEYS está vacía no se exige clave (solo para desarrollo; el
 arranque lo avisa en el log).
 """
 

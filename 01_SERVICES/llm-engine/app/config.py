@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     memory_ttl_seconds: int = Field(default=86400, alias="MEMORY_TTL_SECONDS")
 
     # /v2/turn (sin estado: el robot manda historial y contexto en cada turno, D5)
-    api_keys: str = Field(default="", alias="ROBITA_API_KEYS")  # separadas por comas; vacío = sin auth (solo desarrollo)
+    api_keys: str = Field(default="", alias="LLM_API_KEYS")  # separadas por comas; vacío = sin auth (solo desarrollo)
     turn_max_history: int = Field(default=16, alias="TURN_MAX_HISTORY")  # mensajes (user+assistant)
     turn_max_context_chars: int = Field(default=6000, alias="TURN_MAX_CONTEXT_CHARS")
     turn_max_tokens_cap: int = Field(default=400, alias="TURN_MAX_TOKENS_CAP")

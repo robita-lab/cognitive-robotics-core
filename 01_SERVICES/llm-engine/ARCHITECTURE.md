@@ -131,7 +131,7 @@ Model selection:
 | Tier | Model | Quantization | Why |
 |---|---|---|---|
 | Local (on-robot) | `qwen2.5:0.5b-instruct` (start) → `qwen2.5:1.5b-instruct` (if CPU allows) | Q4_K_M | Strong Spanish, tiny footprint, 100 ms-ish TTFT on CPU |
-| Server (GPU) | **`qwen3:4b-instruct-2507-q4_K_M`** | Q4_K_M | Primary since 2026-11-09: best of 6 models on the normativa/voice benchmark (`robita_cognitive.tools.eval_llm`), ~0.7 s to first sentence on an RTX 4080 Laptop, 2.5 GB. `qwen2.5:7b` was close but cited wrong articles and once switched to Chinese mid-answer (see `docs/RAG_NORMATIVA.md` §8). Previous default: `qwen2.5:3b-instruct`. |
+| Server (GPU) | **`qwen3:4b-instruct-2507-q4_K_M`** | Q4_K_M | Primary since 2026-11-09: best of 6 models on the normativa/voice benchmark (`cognitive_language.tools.eval_llm`), ~0.7 s to first sentence on an RTX 4080 Laptop, 2.5 GB. `qwen2.5:7b` was close but cited wrong articles and once switched to Chinese mid-answer (see `docs/RAG_NORMATIVA.md` §8). Previous default: `qwen2.5:3b-instruct`. |
 
 Fallbacks kept as overlays: `llama3.2:3b-instruct`, `phi3:mini`, `gemma2:2b`.
 

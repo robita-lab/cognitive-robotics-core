@@ -77,7 +77,7 @@ Exploración (sentence-transformers, mismo banco):
 | multilingual-e5-small | artículo | híbrida | 0,75 | 0,93 | 0,83 | 0,99 |
 | paraphrase-multilingual-mpnet-base-v2 (278M, referencia) | 1000 caract. | híbrida | 0,75 | 0,97 | 0,85 | 0,95 |
 
-Implementación final (ONNX, `python -m robita_cognitive.tools.eval_index`):
+Implementación final (ONNX, `python -m cognitive_language.tools.eval_index`):
 **hit@1 0,78 · hit@3 0,95 · MRR 0,86 · AUC¬ 0,99 · acierto respondo/me abstengo
 con umbral 0,84: 0,92.**
 
@@ -118,7 +118,7 @@ reconstruye el índice con ese modelo.
 | Servidor MCP remoto | **No** | El robot debe responder sin WiFi y en tiempo real. Hypatia está pensada para agentes, no para un turno de voz. |
 
 **Decisión:** solución ligera inspirada en hypatia, dentro de
-`robita_cognitive`:
+`cognitive_language`:
 - `core/knowledge.py`: el índice y la búsqueda.
 - `core/embeddings.py`: e5 en ONNX.
 - `core/backends/normativa.py`: el backend.
@@ -173,7 +173,7 @@ Banco: 15 preguntas de normativa (las respuestas pasan por el LLM con los
 3 fragmentos recuperados) y 3 de cultura general. Se comprueba de forma
 automática que aparezca el dato clave (B2, 25 horas, "no reembolsable",
 julio…) y que no haya markdown ni listas, y **después se revisa todo a mano**.
-Herramienta: `python -m robita_cognitive.tools.eval_llm`.
+Herramienta: `python -m cognitive_language.tools.eval_llm`.
 
 Hardware: RTX 4080 Laptop (12 GB). El servidor del laboratorio (Quadro RTX
 4000, 8 GB) es más lento; cabe esperar algo más de latencia.

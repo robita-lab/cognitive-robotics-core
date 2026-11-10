@@ -1,5 +1,5 @@
 {
-  "_doc": "Banco de preguntas para medir el índice de normativa (python -m robita_cognitive.tools.eval_index). gold = unidades válidas 'DOC:N' (ACC acceso y admisión, RAC créditos, CON condiciones generales, EXT extinción (punto N), POL política de calidad; N=0 preámbulo/documento entero). gold vacío = la respuesta NO está en los documentos (el robot debe abstenerse). Escritas a partir de los documentos (2026-11-09); conviene añadir preguntas reales de visitantes.",
+  "_doc": "Banco de preguntas para medir el índice de normativa (python -m cognitive_language.tools.eval_index). gold = unidades válidas 'DOC:N' (ACC acceso y admisión, RAC créditos, CON condiciones generales, EXT extinción (punto N), POL política de calidad; N=0 preámbulo/documento entero). gold vacío = la respuesta NO está en los documentos (el robot debe abstenerse). Escritas a partir de los documentos (2026-11-09); conviene añadir preguntas reales de visitantes.",
   "questions": [
     {"q": "¿Qué necesito para entrar en un grado si tengo bachillerato?", "gold": ["ACC:4"]},
     {"q": "¿Puedo entrar en la universidad con un ciclo de grado superior?", "gold": ["ACC:4"]},
