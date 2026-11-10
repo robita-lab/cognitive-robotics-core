@@ -37,7 +37,7 @@ cd /opt/cognitive-robotics-core
 ```
 
 - Calibración de ruido → bienvenida hablada → di **«udito»** → pregunta → respuesta por altavoz.
-- Script: `05_ROS2/udito_modulos_robot/robot_voice_loop.py`
+- Script: `01_SERVICES/voice-face-engine/robot_voice_loop.py`
 
 ---
 
@@ -98,7 +98,7 @@ Alternativa: editar y ejecutar `Despliegue_github.sh` **solo en el servidor**, c
 
 ```
 01_SERVICES/          # motores + Dockerfiles
-05_ROS2/udito_modulos_robot/
+01_SERVICES/voice-face-engine/
   robot_voice_loop.py   # etapa 1
   robot_edge_client.py  # etapa 2 Jetson
   robot_common.py
@@ -141,7 +141,7 @@ cd /opt/cognitive-robotics-core
 python3 -m venv .venv
 source .venv/bin/activate
 # Solo lo que necesita el edge (ligero):
-pip install -r 05_ROS2/udito_modulos_robot/requirements-edge.txt
+pip install -r 01_SERVICES/voice-face-engine/requirements-edge.txt
 
 cp .env.example .env
 # Editar:

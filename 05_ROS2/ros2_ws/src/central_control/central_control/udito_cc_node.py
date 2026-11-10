@@ -21,9 +21,9 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
 
-from udito_ros import intents as I
-from udito_ros import topics
-from udito_ros.paths import RESPONSES
+from central_control import intents as I
+from central_control import topics
+from central_control.paths import RESPONSES
 
 EYES_CYCLE = ["wink", "curious", "wide", "closed", "love", "happy"]
 

@@ -1,13 +1,14 @@
-# Arquitectura híbrida - UDITO · Módulos del robot (voz, rostro, audio)
+# Arquitectura híbrida - UDITO · voice-face-engine (voz, rostro y audio)
 
 > **Arquitectura híbrida** = evolución del 3T (consenso ROBITA-lab, D14): 4 capas + 4 planos transversales.
 > Diagrama: [`docs/Arquitectura_hibrida_UDITO_v2.png`](../../docs/Arquitectura_hibrida_UDITO_v2.png)
 
-Librería Python que usan las **habilidades** (capa 1) del paquete `udito_ros`. Antes estaba en la carpeta
-`robot-udit-physical` de 03_ADAPTERS; se trasladó aquí porque es **código de funcionamiento** y
-`03_ADAPTERS` queda solo para instalación y configuración de dispositivos.
+Motor en Python **sin ROS**, igual que `stt-engine` y `tts-engine`. Lo usan las habilidades de voz
+(`05_ROS2/ros2_ws/src/voice_skills`) y el modo sin ROS. Historia: estaba en `03_ADAPTERS/robot-udit-physical`
+y después en una carpeta de `05_ROS2`; vive aquí porque no es ROS y puede reutilizarlo cualquier
+adaptador (robot, web…).
 
-Los nodos la cargan con `udito_ros.paths.add_engine_paths()`, así que no hace falta instalarla.
+Los nodos lo cargan con `central_control.paths.add_engine_paths()`, así que no hace falta instalarla.
 
 | Archivo | Para qué |
 |---------|----------|

@@ -28,7 +28,8 @@ if [[ -f "$ROOT/.env" ]]; then set -a; source "$ROOT/.env" || true; set +a; fi
 [[ "$(uname -m)" == "aarch64" && -f "$ROOT/scripts/lib/jetson-env.sh" ]] && source "$ROOT/scripts/lib/jetson-env.sh"
 
 # Una sola instancia: si quedó otra corriendo, se cierra (evita respuestas duplicadas)
-pkill -f "lib/udito_ros/" 2>/dev/null || true
+pkill -f "lib/central_control/" 2>/dev/null || true
+pkill -f "lib/voice_skills/" 2>/dev/null || true
 pkill -f "udito_face.py" 2>/dev/null || true
 sleep 1
 
@@ -39,8 +40,8 @@ for a in "$@"; do
   if [[ "$a" == "--build" ]]; then BUILD=1; else ARGS+=("$a"); fi
 done
 cd "$WS"
-if [[ $BUILD -eq 1 || ! -d install/udito_ros ]]; then
-  colcon build --packages-select udito_ros --symlink-install
+if [[ $BUILD -eq 1 || ! -d install/central_control ]]; then
+  colcon build --packages-select central_control voice_skills --symlink-install
 fi
 source install/setup.bash
 
@@ -48,4 +49,4 @@ source install/setup.bash
 export PYTHONPATH="$VENV_SP:${PYTHONPATH:-}"
 export ROBITA_ROS2_SPEECH=0
 export DISPLAY="${DISPLAY:-:0}"
-exec ros2 launch udito_ros udito_voice.launch.py "${ARGS[@]}"
+exec ros2 launch central_control udito_voice.launch.py "${ARGS[@]}"

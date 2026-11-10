@@ -20,7 +20,7 @@ def intents_file() -> Path:
     try:
         from ament_index_python.packages import get_package_share_directory
 
-        return Path(get_package_share_directory("udito_ros")) / "config" / "intents.yaml"
+        return Path(get_package_share_directory("central_control")) / "config" / "intents.yaml"
     except Exception:  # noqa: BLE001
         return Path(__file__).resolve().parents[1] / "config" / "intents.yaml"
 

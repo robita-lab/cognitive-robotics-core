@@ -8,4 +8,4 @@ PY="$ROOT/.venv/bin/python"
 [[ "$(id -u)" == "0" ]] && echo "Aviso: estás como root; PulseAudio (micro/altavoz del escritorio) puede no verse."
 "$PY" -c "import pygame" 2>/dev/null || "$PY" -m pip install -q pygame
 export DISPLAY="${DISPLAY:-:0}"
-exec "$PY" "$ROOT/05_ROS2/udito_modulos_robot/udito_audio.py"
+exec "$PY" "$ROOT/01_SERVICES/voice-face-engine/udito_audio.py"

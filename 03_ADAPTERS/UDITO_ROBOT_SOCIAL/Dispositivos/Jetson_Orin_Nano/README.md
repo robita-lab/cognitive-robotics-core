@@ -17,7 +17,7 @@ Behavior Tree al MiniPC (fase F2), también ejecuta el C.C. (`udito_cc`).
 | Carpeta | Qué es | Cuándo se usa |
 |---------|--------|---------------|
 | [`arranque/`](arranque/) | Ajustes de hardware al iniciar Ubuntu: modo de energía MAXN_SUPER, `jetson_clocks`, ReSpeaker reservado para el robot, actualizaciones de snap en pausa | Una vez; luego se aplican solos en cada arranque |
-| [`entorno_ros2/`](entorno_ros2/) | Carga ROS 2 y el paquete `udito_ros` en todas las terminales y para todos los usuarios | Una vez |
+| [`entorno_ros2/`](entorno_ros2/) | Carga ROS 2 y los proyectos `central_control` y `voice_skills` en todas las terminales y para todos los usuarios | Una vez |
 
 ## Instalación desde cero
 
@@ -45,17 +45,17 @@ sudo cp udito-ros2-entorno.sh /etc/profile.d/
 grep -q udito-ros2-entorno /etc/bash.bashrc || echo '[ -f /etc/profile.d/udito-ros2-entorno.sh ] && . /etc/profile.d/udito-ros2-entorno.sh' | sudo tee -a /etc/bash.bashrc
 
 # 5. Compilar el paquete (primera vez)
-cd /opt/cognitive-robotics-core/05_ROS2/ros2_ws && colcon build --packages-select udito_ros --symlink-install
+cd /opt/cognitive-robotics-core/05_ROS2/ros2_ws && colcon build --packages-select central_control voice_skills --symlink-install
 ```
 
 ## Arrancar el robot
 
 | Forma | Comando |
 |-------|---------|
-| Nativa ROS 2 | `ros2 launch udito_ros udito_voice.launch.py` |
+| Nativa ROS 2 | `ros2 launch central_control udito_voice.launch.py` |
 | Atajo (cierra instancias anteriores y compila si hace falta) | `robot` (= `./scripts/ros2/udito-ros.sh`) |
 
-Las opciones (`whisper:=`, `stt_mode:=`, `mic:=`…) están en el README del paquete `udito_ros`.
+Las opciones (`whisper:=`, `stt_mode:=`, `mic:=`…) están en el README de `central_control`.
 
 ## Comprobar que todo está bien
 
@@ -63,5 +63,5 @@ Las opciones (`whisper:=`, `stt_mode:=`, `mic:=`…) están en el README del paq
 systemctl is-active udito-jetson-arranque.service   # active
 nvpmodel -q                                         # NV Power Mode: MAXN_SUPER
 snap refresh --time | grep -i hold                  # hold: forever
-ros2 pkg list | grep udito_ros                      # udito_ros
+ros2 pkg list | grep -E 'central_control|voice_skills'   # central_control y voice_skills
 ```

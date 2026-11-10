@@ -1,4 +1,4 @@
-# Arquitectura híbrida - UDITO · Paquete `udito_ros`
+# Arquitectura híbrida - UDITO · Proyecto `central_control` (C.C.)
 
 > **Arquitectura híbrida** = evolución del modelo 3T acordada en el consenso de ROBITA-lab (D14).
 > Conserva la separación deliberativa / ejecutiva / reactiva y añade **habilidades** con contrato
@@ -6,12 +6,15 @@
 > (seguridad, modelo del mundo, modos y salud, observabilidad).
 > Diagrama: [`docs/Arquitectura_hibrida_UDITO_v2.png`](../../../../docs/Arquitectura_hibrida_UDITO_v2.png)
 
-| Capa | En este paquete | Analogía de empresa |
-|------|-----------------|---------------------|
-| 3 · Deliberativa | `udito_cognitive` (desactivado en el módulo 1) | Dirección: decide qué decir |
-| 2 · Ejecutiva | `udito_cc` — C.C. de UDITO (pasa a Behavior Tree en F2) | Jefe de proyecto: decide cómo y cuándo |
-| 1 · Habilidades | `udito_stt`, `udito_tts` (se unirán en una sola habilidad de voz), consola | Especialistas: cada uno sabe hacer una cosa |
-| 0 · Plataforma | ReSpeaker, altavoz, pantalla (instalación en `03_ADAPTERS/.../Jetson_Orin_Nano`) | Instalaciones y máquinas |
+UDITO en ROS 2 son **dos proyectos** (paquetes) en `05_ROS2/ros2_ws/src/`:
+
+| Proyecto | Capa | Contiene | Analogía de empresa |
+|----------|------|----------|---------------------|
+| **`central_control`** (este) | 2 · Ejecutiva (+ operador y 3 · deliberativa) | C.C. `udito_cc`, catálogo de órdenes, consola, ejemplo del cuerpo, `cognitive`, lanzador | Jefe de proyecto: decide cómo y cuándo |
+| [`voice_skills`](../voice_skills/) | 1 · Habilidades | Oído (`udito_stt`) y voz (`udito_tts`) | Especialistas en escuchar y hablar |
+
+Los motores no son ROS y viven en `01_SERVICES/` (Whisper, Piper y `voice-face-engine`: voz con emociones, rostro y audio).
+La instalación del hardware está en `03_ADAPTERS/UDITO_ROBOT_SOCIAL/Dispositivos/Jetson_Orin_Nano`.
 
 **Etapa actual (módulo 1):** órdenes simples por voz, sin RAG. El robot oye (STT), el C.C. reconoce la
 orden de un catálogo de 20 (`config/intents.yaml`) y reparte: voz (TTS), cara y, si toca, una orden al
@@ -23,13 +26,13 @@ cuerpo (`/udito/intent`). El operador puede escribir frases con expresión: `[fe
 
 | Forma | Comando |
 |-------|---------|
-| **Nativa ROS 2** (recomendada) | `ros2 launch udito_ros udito_voice.launch.py` |
+| **Nativa ROS 2** (recomendada) | `ros2 launch central_control udito_voice.launch.py` |
 | Atajo | `robot` — cierra instancias anteriores, compila si hace falta y lanza lo mismo |
 
 La primera vez (o tras cambiar `setup.py`):
 
 ```bash
-cd /opt/cognitive-robotics-core/05_ROS2/ros2_ws && colcon build --packages-select udito_ros --symlink-install
+cd /opt/cognitive-robotics-core/05_ROS2/ros2_ws && colcon build --packages-select central_control voice_skills --symlink-install
 ```
 
 El lanzador prepara el entorno solo: lee `.env`, añade el `.venv` (Whisper, Piper, RAG) y, en la Jetson,
@@ -48,7 +51,7 @@ hardware (frecuencias, ReSpeaker, snap) se aplican al iniciar Ubuntu, no aquí.
 | `cognitive` · `rag` | `true` · `false` | `false` | Capa deliberativa y RAG completo |
 | `face` | `true` · `false` | `false` | Cara en ventana aparte (pantalla física) |
 
-Ejemplo: `ros2 launch udito_ros udito_voice.launch.py whisper:=tiny mic:=false`
+Ejemplo: `ros2 launch central_control udito_voice.launch.py whisper:=tiny mic:=false`
 
 ### Variables de entorno (archivo `.env` de la raíz)
 
@@ -69,15 +72,15 @@ Pantalla de audio: `./scripts/udito/audio.sh`.
 
 | Nodo (ejecutable) | Capa | Hace |
 |-------------------|------|------|
-| `udito_stt` (`stt_node`) | 1 · Habilidad | Micrófono → Whisper → texto. Modo «mantén para hablar» |
-| `udito_tts` (`tts_node`) | 1 · Habilidad | Habla con Piper, boca sincronizada con el volumen del audio, avisa al terminar |
+| `udito_stt` (`voice_skills/stt_node`) | 1 · Habilidad | Micrófono → Whisper → texto. Modo «mantén para hablar» |
+| `udito_tts` (`voice_skills/tts_node`) | 1 · Habilidad | Habla con Piper, boca sincronizada con el volumen del audio, avisa al terminar |
 | `udito_cc` (`udito_cc_node`) | 2 · Ejecutiva | **C.C. de UDITO**: reconoce la orden y reparte voz, cara y cuerpo |
 | `udito_body_example` (`body_example_node`) | Ejemplo | Cómo recibir `/udito/intent` y dónde conectar cuello y base |
 | `udito_console` (`console_node`) | Operador | Robot dibujado, ENCENDER, hablar, órdenes, «Haz que diga» y log |
 | `udito_cognitive` (`cognitive_node`) | 3 · Deliberativa | (Desactivado) preguntas abiertas con RAG |
 
 Los motores **no se duplican**: los nodos importan Whisper, Piper y RAG desde `01_SERVICES/`, y los
-módulos de voz, rostro y audio desde `05_ROS2/udito_modulos_robot/`.
+módulos de voz, rostro y audio desde `01_SERVICES/voice-face-engine/`.
 
 ## Flujo de una orden («sígueme»)
 
@@ -90,6 +93,20 @@ módulos de voz, rostro y audio desde `05_ROS2/udito_modulos_robot/`.
              ▼                                     ▼                              ▼
    orquestador del CUERPO (Nav2)              cara (pantalla)                 udito_tts (altavoz)
 ```
+
+## Archivos de este proyecto
+
+| Archivo | Para qué |
+|---------|----------|
+| `central_control/udito_cc_node.py` | El C.C.: reconoce la orden y reparte voz, cara y cuerpo |
+| `central_control/intents.py` | Carga y reconoce órdenes; separa etiquetas de emoción |
+| `config/intents.yaml` | Las 20 órdenes (sin tocar código) |
+| `central_control/topics.py` | Nombres de todos los topics (también los usa `voice_skills`) |
+| `central_control/paths.py` | Rutas del repo y de los motores de `01_SERVICES` |
+| `central_control/console_node.py` | Consola del operador |
+| `central_control/body_example_node.py` | Ejemplo para el orquestador del cuerpo |
+| `central_control/cognitive_node.py` | Capa deliberativa (RAG, desactivada) |
+| `launch/udito_voice.launch.py` | Arranca los dos proyectos |
 
 ## Contrato de topics (módulo 1)
 
@@ -141,7 +158,7 @@ El C.C. **no mueve motores**: publica la intención en `/udito/intent` y el orqu
 | ven aquí | `go_to` | `{target: speaker}` | acción `NavigateToPose` |
 | da una vuelta | `rotate` | `{degrees: 360}` | `/cmd_vel` angular o `Spin` de Nav2 |
 
-**Ejemplo listo para copiar:** `udito_ros/body_example_node.py` (tabla de despacho acción → función).
+**Ejemplo listo para copiar:** `central_control/body_example_node.py` (tabla de despacho acción → función).
 
 **Probar sin voz:**
 
@@ -155,4 +172,4 @@ ros2 topic pub --once /udito/stt/text std_msgs/String "{data: sigueme}"  # termi
 
 1. Añade un bloque en `config/intents.yaml` (`id`, `label`, `phrases`, `say`, `face` y, si mueve el cuerpo, `body`).
 2. Si tiene `body`, añade su `name` en la tabla de despacho del orquestador del cuerpo.
-3. Reinicia con `robot` (o `ros2 launch udito_ros udito_voice.launch.py`). No hace falta tocar código del C.C.
+3. Reinicia con `robot` (o `ros2 launch central_control udito_voice.launch.py`). No hace falta tocar código del C.C.

@@ -42,11 +42,11 @@ el deliberativo propone y el ejecutivo dispone · contratos tipados en `robita_i
 
 | Carpeta | Qué contiene |
 |---------|--------------|
-| `01_SERVICES/` | **Motores** de IA, sin lógica del robot: `stt-engine` (Whisper), `tts-engine` (Piper), `rag-engine` |
+| `01_SERVICES/` | **Motores** sin ROS: `stt-engine` (Whisper), `tts-engine` (Piper), `rag-engine`, `voice-face-engine` (voz con emociones, rostro y audio) |
 | `02_AGENTS_FACTORY/` | Agentes |
 | `03_ADAPTERS/` | **Instalación y configuración** de cada dispositivo que usa UDITO. Sin código ([README](03_ADAPTERS/README.md)) |
 | `04_KNOWLEDGE_CORE/` | **Conocimiento**: documentos, índices, grafos y respuestas fijas |
-| `05_ROS2/` | **Todo el código de funcionamiento** del robot: paquete `udito_ros` y `udito_modulos_robot` |
+| `05_ROS2/` | **Solo ROS 2.** UDITO son dos proyectos: `central_control` (C.C.) y `voice_skills` (oído y voz) |
 | `docs/` | Arquitectura |
 | `scripts/` | Atajos de instalación y lanzamiento (el robot también arranca sin ellos) |
 
@@ -59,12 +59,12 @@ cognitive-robotics-core/
 │   ├── Arduino_Cuello/        # cuello y ojos
 │   ├── Servidor_Laboratorio/  # LLM grande y RAG completo
 │   └── Raspberry/             # reservado
-├── 05_ROS2/
-│   ├── udito_modulos_robot/   # voz, rostro y audio (librería de las habilidades)
-│   └── ros2_ws/src/udito_ros/ # paquete ROS 2 de UDITO
-│       ├── config/intents.yaml        # las 20 órdenes
-│       ├── launch/udito_voice.launch.py
-│       └── udito_ros/  udito_cc_node.py · stt_node.py · tts_node.py · console_node.py · …
+├── 01_SERVICES/voice-face-engine/   # voz con emociones, rostro y audio (sin ROS)
+├── 05_ROS2/ros2_ws/src/
+│   ├── central_control/       # C.C.: udito_cc_node · intents · console · body_example · cognitive
+│   │   ├── config/intents.yaml        # las 20 órdenes
+│   │   └── launch/udito_voice.launch.py
+│   └── voice_skills/          # oído y voz: stt_node · tts_node
 └── scripts/ros2/udito-ros.sh  # atajo `robot`
 ```
 
@@ -91,14 +91,14 @@ cd /opt/cognitive-robotics-core && ./scripts/udito/audio.sh
 ### 4.2 Arrancar el robot
 
 ```bash
-ros2 launch udito_ros udito_voice.launch.py      # nativo ROS 2
+ros2 launch central_control udito_voice.launch.py      # nativo ROS 2
 robot                                           # atajo: cierra instancias anteriores y compila si hace falta
 ```
 
 En la **Consola UDITO**: pulsa **ENCENDER**, mantén **MANTÉN PARA HABLAR** (o la barra espaciadora), di la orden y suelta.
 También puedes hacer clic en una orden o escribir en **«Haz que diga»** con expresiones: `[feliz] ¡Hola! [sorpresa] ¿En serio?`.
 
-Opciones del lanzador y variables de entorno: [README de `udito_ros`](05_ROS2/ros2_ws/src/udito_ros/README.md).
+Opciones del lanzador y variables de entorno: [README de `central_control`](05_ROS2/ros2_ws/src/central_control/README.md).
 
 ### 4.3 Probar sin voz
 
@@ -147,7 +147,7 @@ ros2 topic echo /udito/intent
 
 ### Añadir una orden
 
-1. Añade un bloque en `05_ROS2/ros2_ws/src/udito_ros/config/intents.yaml` (`id`, `label`, `phrases`, `say`, `face` y, si mueve el cuerpo, `body`).
+1. Añade un bloque en `05_ROS2/ros2_ws/src/central_control/config/intents.yaml` (`id`, `label`, `phrases`, `say`, `face` y, si mueve el cuerpo, `body`).
 2. Si tiene `body`, añade su `name` al orquestador del cuerpo.
 3. Reinicia con ``robot --build``. No hace falta tocar código.
 
@@ -192,7 +192,7 @@ NoMachine: puerto `4000`. La red de la universidad bloquea el tráfico entre seg
 | STT muy lento (>10 s) | El servicio de arranque no está activo | `systemctl is-active udito-jetson-arranque.service` (ver `Jetson_Orin_Nano/arranque`) |
 | Sin sonido, «Device or resource busy» | PulseAudio tiene el ReSpeaker | Regla udev de `Jetson_Orin_Nano/arranque` instalada y reinicio |
 | `ros2: command not found` | Entorno ROS 2 no instalado para todos | `Jetson_Orin_Nano/entorno_ros2` |
-| `Package 'udito_ros' not found` | Paquete sin compilar | `cd 05_ROS2/ros2_ws && colcon build --packages-select udito_ros --symlink-install` |
+| `Package 'central_control' not found` | Paquete sin compilar | `cd 05_ROS2/ros2_ws && colcon build --packages-select central_control voice_skills --symlink-install` |
 | `Exec format error` en Piper | Binario de PC en vez de ARM | `./scripts/setup/piper-jetson.sh` |
 | Respuestas duplicadas | Dos instancias corriendo | Arrancar con `robot`, que cierra las anteriores |
 

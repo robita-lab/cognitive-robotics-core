@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>voice_skills</name>
+  <version>0.2.0</version>
+  <description>Arquitectura híbrida - UDITO · Habilidades de voz: oído (STT, Whisper) y voz (TTS, Piper) con boca sincronizada.</description>
+  <maintainer email="dguevaras@hotmail.com">Danilo Guevara</maintainer>
+  <license>Apache-2.0</license>
+
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>std_msgs</exec_depend>
+  <exec_depend>central_control</exec_depend>
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>

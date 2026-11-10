@@ -3,7 +3,7 @@
 ```
 /opt/cognitive-robotics-core/
 ├── 01_SERVICES/          # wakeword, STT, TTS, RAG (librerías locales)
-├── 05_ROS2/udito_modulos_robot/   # udito_standalone.py, robot_common.py
+├── 01_SERVICES/voice-face-engine/   # udito_standalone.py, robot_common.py
 ├── 04_KNOWLEDGE_CORE/    # textos + PDFs RAG
 ├── 05_ROS2/              # topics wakeword + voz
 ├── scripts/              # ver scripts/README.md

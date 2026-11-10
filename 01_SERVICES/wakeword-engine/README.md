@@ -15,7 +15,7 @@ models/
 main.py                ← API HTTP opcional (/detect, /stream)
 ```
 
-El robot (`05_ROS2/udito_modulos_robot/`) importa `Detector_wakeword as ww` y lee umbrales de detección desde este JSON. La configuración de grabación/VAD/speaker-lock está en `05_ROS2/udito_modulos_robot/config/session.json`.
+El robot (`01_SERVICES/voice-face-engine/`) importa `Detector_wakeword as ww` y lee umbrales de detección desde este JSON. La configuración de grabación/VAD/speaker-lock está en `01_SERVICES/voice-face-engine/config/session.json`.
 
 ## Configuración (`config/wakeword.json`)
 

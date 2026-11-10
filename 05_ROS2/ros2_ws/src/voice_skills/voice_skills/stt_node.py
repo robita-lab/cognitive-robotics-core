@@ -23,9 +23,9 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
 
-from udito_ros import intents as I
-from udito_ros import topics
-from udito_ros.paths import SERVICES, add_engine_paths
+from central_control import intents as I
+from central_control import topics
+from central_control.paths import SERVICES, add_engine_paths
 
 
 class SttNode(Node):

@@ -2,7 +2,7 @@
 
 Los nodos ROS 2 NO duplican los motores (Whisper, Piper, RAG): los importan
 desde el repo. Los módulos de voz, rostro y audio que usan las habilidades
-viven en 05_ROS2/udito_modulos_robot.
+viven en 01_SERVICES/voice-face-engine.
 """
 from __future__ import annotations
 
@@ -25,7 +25,7 @@ def repo_root() -> Path:
 
 ROOT = repo_root()
 SERVICES = ROOT / "01_SERVICES"
-MODULES = ROOT / "05_ROS2" / "udito_modulos_robot"
+MODULES = ROOT / "01_SERVICES" / "voice-face-engine"
 ADAPTER = MODULES  # nombre anterior, se mantiene por compatibilidad
 KNOWLEDGE = ROOT / "04_KNOWLEDGE_CORE"
 RESPONSES = KNOWLEDGE / "responses"

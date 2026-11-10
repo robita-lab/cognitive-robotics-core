@@ -21,8 +21,8 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import Bool, String
 
-from udito_ros import intents as I
-from udito_ros import topics
+from central_control import intents as I
+from central_control import topics
 
 # ---------------------------------------------------------------- colores
 BG = (10, 14, 26)

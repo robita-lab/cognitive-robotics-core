@@ -35,7 +35,7 @@ for req in \
   "$ROOT/01_SERVICES/tts-engine/requirements.txt" \
   "$ROOT/01_SERVICES/wakeword-engine/requirements.txt" \
   "$RAG_REQ" \
-  "$ROOT/05_ROS2/udito_modulos_robot/requirements-edge.txt"
+  "$ROOT/01_SERVICES/voice-face-engine/requirements-edge.txt"
 do
   echo "==> pip install -r $req"
   "$PIP" install -r "$req"

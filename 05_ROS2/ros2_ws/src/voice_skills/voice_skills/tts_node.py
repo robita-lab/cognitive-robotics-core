@@ -16,8 +16,8 @@ import rclpy  # noqa: E402
 from rclpy.node import Node  # noqa: E402
 from std_msgs.msg import String  # noqa: E402
 
-from udito_ros import topics  # noqa: E402
-from udito_ros.paths import SERVICES, add_engine_paths  # noqa: E402
+from central_control import topics  # noqa: E402
+from central_control.paths import SERVICES, add_engine_paths  # noqa: E402
 
 
 class TtsNode(Node):

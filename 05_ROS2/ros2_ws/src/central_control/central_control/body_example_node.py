@@ -25,7 +25,7 @@ import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
 
-from udito_ros import topics
+from central_control import topics
 
 
 class BodyExample(Node):

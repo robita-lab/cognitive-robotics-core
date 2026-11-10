@@ -1,8 +1,9 @@
-"""Arquitectura híbrida - UDITO · Lanzador ROS 2: voz, C.C., consola y ejemplo del cuerpo.
+"""Arquitectura híbrida - UDITO · Lanzador ROS 2 de UDITO: proyectos central_control (C.C., consola,
+cuerpo de ejemplo, cognitive) y voice_skills (oído y voz).
 
 Uso nativo (sin scripts), desde cualquier terminal con ROS 2 cargado:
 
-    ros2 launch udito_ros udito_voice.launch.py [opción:=valor ...]
+    ros2 launch central_control udito_voice.launch.py [opción:=valor ...]
 
 Opciones (argumentos del lanzador):
     console:=true|false        Consola del operador (cara, botones, log)            [true]
@@ -121,7 +122,7 @@ def _prepare_environment(root: Path) -> Path:
 
 def _close_previous_instances() -> None:
     """Cierra nodos de UDITO que hayan quedado vivos de un lanzamiento anterior (evita respuestas dobles)."""
-    patterns = ["lib/udito_ros/", "udito_modulos_robot/udito_face.py"]
+    patterns = ["lib/central_control/", "lib/voice_skills/", "lib/udito_ros/", "voice-face-engine/udito_face.py"]
     found = False
     for pat in patterns:
         if subprocess.run(["pgrep", "-f", pat], capture_output=True).returncode == 0:
@@ -138,7 +139,7 @@ def generate_launch_description():
     face_python = _prepare_environment(root)
     arg = LaunchConfiguration
 
-    console = Node(package="udito_ros", executable="console_node", name="udito_console", output="screen",
+    console = Node(package="central_control", executable="console_node", name="udito_console", output="screen",
                    condition=IfCondition(arg("console")))
 
     return LaunchDescription([
@@ -152,19 +153,19 @@ def generate_launch_description():
         DeclareLaunchArgument("face", default_value="false", description="Cara en ventana aparte (pantalla física)"),
 
         # Capa ejecutiva: C.C. de UDITO (pasará a Behavior Tree en F2)
-        Node(package="udito_ros", executable="udito_cc_node", name="udito_cc", output="screen",
+        Node(package="central_control", executable="udito_cc_node", name="udito_cc", output="screen",
              parameters=[{"use_cognitive": ParameterValue(arg("cognitive"), value_type=bool)}]),
-        # Capa de habilidades: voz
-        Node(package="udito_ros", executable="tts_node", name="udito_tts", output="screen"),
-        Node(package="udito_ros", executable="stt_node", name="udito_stt", output="screen",
+        # Capa de habilidades: voz (proyecto voice_skills)
+        Node(package="voice_skills", executable="tts_node", name="udito_tts", output="screen"),
+        Node(package="voice_skills", executable="stt_node", name="udito_stt", output="screen",
              condition=IfCondition(arg("mic")),
              parameters=[{"mode": ParameterValue(arg("stt_mode"), value_type=str),
                           "model": ParameterValue(arg("whisper"), value_type=str)}]),
         # Ejemplo para el orquestador del cuerpo
-        Node(package="udito_ros", executable="body_example_node", name="udito_body_example", output="screen",
+        Node(package="central_control", executable="body_example_node", name="udito_body_example", output="screen",
              condition=IfCondition(arg("body_example"))),
         # Capa deliberativa (opcional)
-        Node(package="udito_ros", executable="cognitive_node", name="udito_cognitive", output="screen",
+        Node(package="central_control", executable="cognitive_node", name="udito_cognitive", output="screen",
              condition=IfCondition(arg("cognitive")),
              parameters=[{"use_rag": ParameterValue(arg("rag"), value_type=bool)}]),
         # Operador: al cerrar la ventana de la consola se apaga todo el lanzamiento
@@ -175,7 +176,7 @@ def generate_launch_description():
         ])),
         # Cara en ventana aparte (pantalla física)
         ExecuteProcess(
-            cmd=[str(face_python), str(root / "05_ROS2/udito_modulos_robot/udito_face.py"), "--wakeword"],
+            cmd=[str(face_python), str(root / "01_SERVICES/voice-face-engine/udito_face.py"), "--wakeword"],
             additional_env={
                 "ROBITA_SPEECH_EVENT_FILE": os.environ.get("ROBITA_SPEECH_EVENT_FILE", "/tmp/udito_speech_out.json"),
                 "ROBITA_WAKEWORD_EVENT_FILE": os.environ.get("ROBITA_WAKEWORD_EVENT_FILE", "/tmp/udito_wakeword.json"),
