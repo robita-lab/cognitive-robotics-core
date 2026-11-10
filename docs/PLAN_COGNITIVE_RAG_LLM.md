@@ -2,13 +2,38 @@
 
 **Encargo:** Javier F. Gorostiza (JFG), "Integración de un RAG+LLM en ROS".
 **Responsable:** Luis Peña · **Rama:** `feature/cognitive-rag-llm` (desde `develop`)
-**Estado:** v0.1 · 2026-11-09 · borrador para revisar con JFG y Danilo
+**Estado:** v0.2 · 2026-11-10 · revisado con JFG (acuerdos abajo)
 
 Este plan es la parte cognitiva de la fase F2 del documento de consenso
 (`docs/ARQUITECTURA_CONSENSO.md`, rama `feature/architecture-consensus`):
 D2 (contrato tipado), D3 (acción `Think` interrumpible), D4 (control en el
 robot, lo pesado en el servidor) y D5 (cognitive → HTTP con respaldo; la
 memoria de conversación vive en el robot).
+
+## Acuerdos de la reunión del 2026-11-10
+
+- **Nomenclatura.** «ROBITA» es el nombre del grupo de investigación y no se
+  usa en paquetes ni soluciones. Esta parte se llama **`cognitive_language`**
+  (procesa las peticiones de lenguaje complejas), se apoya en
+  **`voice_skills`** (la parte de voz de Danilo) y la invoca
+  **`central_control`** (control central). Hecho: `robita_cognitive` →
+  `cognitive_language`, `robita_interfaces` → `cognitive_language_interfaces`,
+  variables `ROBITA_*` nuevas → `COGNITIVE_*` en el robot y `LLM_API_KEYS` en
+  el servidor; imagen `cognitive-language:humble`.
+- **Robot sin servidor:** vale la respuesta local (frase literal de la
+  normativa con su artículo).
+- **Preguntas de UDIT sin dato:** de momento, «no tengo ese dato» sin LLM.
+- **Merge a `develop`:** sí, con el cambio de nombres hecho y **después** de
+  probar en la Jetson y en el servidor del laboratorio.
+- **Frontera con Danilo** (C.C./BT, voz, actualizar su rama, RAM de la
+  Jetson): en espera hasta que reubique su solución (`voice_skills`).
+- **Red:** habrá una WiFi propia donde convivan el robot y el servidor; ya no
+  depende de que TI permita WireGuard.
+- Pendiente de respuesta: modelo y despliegue del servidor
+  (`qwen3:4b-instruct-2507` en Docker con GPU y clave de API).
+
+Pasos de despliegue en el servidor y en la Jetson:
+`docs/DESPLIEGUE_COGNITIVE_LANGUAGE.md`.
 
 ## 1. Restricciones
 
@@ -34,7 +59,7 @@ memoria de conversación vive en el robot).
 ## 3. Arquitectura
 
 ```
-C.C. / BT ──Think (acción, cancelable)──► robita_cognitive   (robot, Jetson)
+C.C. / BT ──Think (acción, cancelable)──► cognitive_language   (robot, Jetson)
                                             ├─ memoria de conversación (fuente de verdad)
                                             ├─ router
                                             ├─ basic_qa + RAG local mínimo   ← funciona sin WiFi
@@ -45,28 +70,28 @@ C.C. / BT ──Think (acción, cancelable)──► robita_cognitive   (robot, 
 
 - **`cognitive_core`**: librería Python pura (router, memoria, backends). Se
   prueba con `pytest` sin ROS.
-- **`robita_cognitive`**: paquete ROS 2 fino. Servidor de la acción `Think`
+- **`cognitive_language`**: paquete ROS 2 fino. Servidor de la acción `Think`
   más un adaptador a `/udito/cognitive/query|answer`, para que el C.C. actual
   de Danilo funcione sin esperar al BT.
-- **`robita_interfaces`**: contrato tipado (D2). De momento solo `Think.action`.
+- **`cognitive_language_interfaces`**: contrato tipado (D2). De momento solo `Think.action`.
 
 ## 4. Fases
 
 ### P0 — Coordinación y contrato (1–2 días)
 - [x] Rama `feature/cognitive-rag-llm` sobre `develop`.
-- [x] `robita_interfaces` con `Think.action`; compila en `ros:humble-ros-base`.
-- [ ] Revisar con JFG dónde vive `robita_interfaces` (reunión 2026-11-10).
+- [x] `cognitive_language_interfaces` con `Think.action`; compila en `ros:humble-ros-base`.
+- [ ] Revisar con JFG dónde vive `cognitive_language_interfaces` (reunión 2026-11-10).
 - [ ] Acordar con Danilo la frontera `Think` y pedirle que actualice su rama
       con `develop` (merge de prueba: 2 conflictos fáciles, `llm_fallback.py`
       y `PROJECT_LAYOUT.md`).
-- [ ] Comprobar `robita_interfaces` también en Jazzy.
+- [ ] Comprobar `cognitive_language_interfaces` también en Jazzy.
 
 ### P1 — Cognitivo en local, sin servidor (prioridad)
-- [x] Núcleo en Python puro (`robita_cognitive.core`): motor con enrutado
+- [x] Núcleo en Python puro (`cognitive_language.core`): motor con enrutado
       local → remoto, memoria por `session_id`, troceo en frases, 27 tests.
       Los backends `rag_local` y `basic_qa` **envuelven el rag-engine actual**
       (paridad con `./UDITO`, condición 1 de Danilo).
-- [x] Paquete `robita_cognitive`: servidor `Think` (feedback por frases, un
+- [x] Paquete `cognitive_language`: servidor `Think` (feedback por frases, un
       goal nuevo interrumpe al anterior) + adaptador a
       `/udito/cognitive/query|answer` + launch + `config/cognitive.yaml`.
 - [x] **Salida (2026-11-09):** en `ros:humble` con `--network none`, el nodo
@@ -81,13 +106,13 @@ C.C. / BT ──Think (acción, cancelable)──► robita_cognitive   (robot, 
 - [ ] Fichas por artículo (respuesta hablada + preguntas que responde),
       generadas fuera del robot y revisadas por una persona
       (`docs/RAG_NORMATIVA.md` §6).
-- [ ] Probar con el C.C. de Danilo (`use_cognitive:=true`) cuando su rama
-      esté al día con `develop`.
+- [ ] Probar con el C.C. de Danilo (`use_cognitive:=true`) cuando reubique
+      su solución (`voice_skills`) y su rama esté al día con `develop`.
 
 ### P2 — Servidor
 - [x] `llm-engine` **`POST /v2/turn` sin estado**: el robot manda historial y
       fragmentos de normativa (`context`); SSE; clave de API
-      (`ROBITA_API_KEYS`). `/v1` se queda para `./UDITO`. 14 tests.
+      (`LLM_API_KEYS`). `/v1` se queda para `./UDITO`. 14 tests.
 - [x] Backend `llm_server` (stdlib): frases del stream → `partial_text`;
       servidor caído → respuesta local y 30 s sin reintentar; stream cortado →
       se devuelve lo ya dicho. La normativa pasa sus 3 fragmentos al LLM para
@@ -122,5 +147,5 @@ C.C. / BT ──Think (acción, cancelable)──► robita_cognitive   (robot, 
 - **Memoria de la Jetson** (8 GB compartidos con Whisper y Piper): sin medir
   hasta tener acceso.
 - **Calidad en español** de los modelos pequeños.
-- **Red universitaria:** WireGuard pendiente de TI; mientras tanto, HTTP en la
-  LAN si TI lo permite.
+- **Red:** resuelto el 2026-11-10: WiFi propia para el robot y el servidor
+  (HTTP en esa LAN con clave de API).
