@@ -195,6 +195,9 @@ from cognitive_language.core.speech_filter import clean_sentence  # noqa: E402
     ("Necesitas: - El título. - La credencial.", "Necesitas: El título. La credencial."),
     ("Más en la web unedasiss.uned.es/home y ya.", "Más en la web y ya."),
     ("Son 25 horas, sin guiones-raros.", "Son 25 horas, sin guiones-raros."),
+    ("Estoy aquí para ayudarte. 😊", "Estoy aquí para ayudarte."),
+    ("¡Qué bien! 👍🏽 ❤️ Sigamos.", "¡Qué bien! Sigamos."),
+    ("Hace 25 °C y cuesta 10 €.", "Hace 25 °C y cuesta 10 €."),
 ])
 def test_clean_sentence_markers(raw, clean):
     assert clean_sentence(raw) == (clean, False)

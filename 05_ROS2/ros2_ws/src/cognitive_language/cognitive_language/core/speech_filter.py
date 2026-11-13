@@ -4,6 +4,8 @@
   "según el fragmento 2", "el documento [2]".
 - Quita markdown que el TTS leería: *cursiva*, **negrita**, `código`, "# ",
   guiones de lista y direcciones web.
+- Quita emojis (qwen3 los mete a veces pese al prompt). Solo símbolos desde
+  U+2600, para no perder "°", "©" ni "€".
 - Corta si aparece escritura no latina (chino, cirílico, árabe...): visto con
   qwen2.5 7B, que a mitad de respuesta saltó a "转让协议" y siguió en inglés.
   El llamador cierra el stream y se queda con lo dicho hasta ahí.
@@ -40,6 +42,11 @@ def _is_foreign_letter(ch: str) -> bool:
         return True
 
 
+def _is_emoji(ch: str) -> bool:
+    cp = ord(ch)
+    return cp in (0x200D, 0xFE0F) or (cp >= 0x2600 and unicodedata.category(ch) in ("So", "Sk"))
+
+
 def clean_sentence(sentence: str) -> tuple[str, bool]:
     """(frase limpia, cortada_por_otro_alfabeto)."""
     cut = False
@@ -49,6 +56,7 @@ def clean_sentence(sentence: str) -> tuple[str, bool]:
             break
     for pat in _MARKERS:
         sentence = pat.sub("", sentence)
+    sentence = "".join(ch for ch in sentence if not _is_emoji(ch))
     sentence = _MARKDOWN.sub("", sentence)
     sentence = _LIST_DASH.sub(" ", sentence)
     sentence = re.sub(r"\s+([,.;:!?])", r"\1", " ".join(sentence.split()))

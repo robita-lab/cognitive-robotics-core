@@ -146,7 +146,10 @@ class CognitiveEngine:
             for s in split_sentences(final.text):
                 emit(s)
 
-        self.memory.append(req.session_id, text, final.text)
+        # La respuesta de relleno no aporta contexto y, si se acumula (ruido en la sala),
+        # el LLM acaba copiándola literalmente en los turnos siguientes.
+        if final.text != self.fallback_text:
+            self.memory.append(req.session_id, text, final.text)
         result = done(final)
         log.info(
             "[%s/%s] «%s» → %s (%s, %.0f ms)",

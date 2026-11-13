@@ -132,6 +132,19 @@ def test_fallback_when_nobody_answers():
     assert (r.text, r.source) == (FALLBACK_TEXT, "fallback")
 
 
+def test_fallback_is_not_stored_in_memory():
+    # Con ruido en la sala el historial se llenaba de FALLBACK_TEXT y el LLM lo copiaba.
+    a = FakeBackend("a", None)
+    eng = CognitiveEngine([a])
+    eng.think(req("ocamóvidi"))
+    eng.think(req("metá querure"))
+    assert eng.memory.history("s1") == []
+    b = FakeBackend("b", BackendAnswer("Hola", source="basic_qa"))
+    eng.local = [b]
+    eng.think(req("hola"))
+    assert [t.text for t in eng.memory.history("s1")] == ["hola", "Hola"]
+
+
 def test_empty_text_does_not_touch_backends_or_memory():
     a = FakeBackend("a", BackendAnswer("x"))
     eng = CognitiveEngine([a])
