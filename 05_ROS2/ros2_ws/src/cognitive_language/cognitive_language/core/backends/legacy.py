@@ -89,7 +89,7 @@ class BasicQaBackend:
     ) -> BackendAnswer | None:
         if self._mgr is None:
             self.warmup()
-        r = self._mgr.find_basic_answer(req.text)
+        r = strict_basic_answer(self._mgr, req.text)
         if not r or not r.get("answer"):
             return None
         text = r["answer"]
@@ -116,9 +116,59 @@ def _has_word(text: str, words: tuple[str, ...]) -> bool:
     return any(_re.search(rf"\b{_re.escape(_fold(w))}\b", t) for w in words)
 
 
+def _has_word_prefix(text: str, words: tuple[str, ...]) -> bool:
+    """Como _has_word, pero las claves de más de 3 letras pueden ser comienzo de palabra:
+    «quien te cre» casa con «quién te creó», y «parte» ya no casa dentro de «imparten»."""
+    t = _fold(text)
+    for w in words:
+        f = _re.escape(_fold(w))
+        if _re.search(rf"\b{f}" if len(w) > 3 else rf"\b{f}\b", t):
+            return True
+    return False
+
+
+def _n_words(text: str) -> int:
+    return len(_re.findall(r"\w+", text))
+
+
+# Respuestas enlatadas (Q&A fijo, chiste, dato curioso, identidad) solo para frases cortas:
+# con el micro abierto, frases largas de una tele o de una conversación cercana las
+# disparaban por una palabra suelta (piloto en la Jetson, 2026-11-13).
+MAX_CANNED_WORDS = 10
+# Claves de qa.json demasiado genéricas para disparar solas una respuesta fija:
+# «creo que…», «lo hicieron», «es un autor», «se imparten», «un robot», «máster oficial»…
+_LOOSE_KEYWORDS = frozenset(_fold(w) for w in (
+    "creo", "creó", "hicieron", "autor", "nombre", "parte", "robot", "máquina", "oficial",
+    "institución", "listo", "sabio", "pensar", "artificial", "universidad", "udit",
+))
+# La identidad de knowledge-text se disparaba con solo oír «UDITO».
+_ID_WORDS = ("quien eres", "que eres", "como te llamas", "tu nombre", "que es udito", "quien es udito")
+
+
+def strict_basic_answer(bqa, text: str) -> dict | None:
+    """BasicQAManager.find_basic_answer con palabras completas, sin claves genéricas y solo
+    para frases cortas. Mismo orden: saludos → identidad → UDIT → preguntas generales."""
+    if _n_words(text) > MAX_CANNED_WORDS:
+        return None
+    low = text.lower().strip()
+    if bqa._is_academic_query(low):
+        return None
+    for section in ("greetings", "identity_questions", "udit_specific"):
+        for entry in bqa.qa_data.get(section, []):
+            kws = tuple(k for k in entry.get("keywords", []) if _fold(k) not in _LOOSE_KEYWORDS)
+            if kws and _has_word_prefix(text, kws):
+                return entry
+    for entry in bqa.qa_data.get("questions", []):
+        if bqa._matches_question(low, entry["question"]):
+            return entry
+    return None
+
+
 # Mismas listas que load_responses.match_knowledge_text, pero exigiendo palabra completa.
-_ADDRESS_WORDS = ("direccion", "sede", "sedes", "donde esta", "donde queda", "ubicacion", "campus",
-                  "calle", "avenida", "domicilio")
+# «dónde está» solo cuenta junto a UDIT/universidad: «…, donde está Gatig, …» (una tele)
+# era a la vez palabra de dirección y de pregunta y daba la dirección de las sedes.
+_ADDRESS_WORDS = ("direccion", "sede", "sedes", "ubicacion", "campus", "calle", "avenida", "domicilio")
+_ADDRESS_WEAK = ("donde esta", "donde queda")
 _UNI_WORDS = ("universidad", "udit", "facultad", "centro")
 _WHERE_WORDS = ("cual", "donde", "que es", "dime")
 _SCHEDULE_WORDS = ("horario", "horarios", "hora", "abre", "abren", "cierra", "cierran", "atencion",
@@ -170,19 +220,22 @@ class RulesBackend:
         if self._bqa is None:
             self.warmup()
         lr, q = self._lr, req.text
-        basic = self._bqa.find_basic_answer(q)
+        short = _n_words(q) <= MAX_CANNED_WORDS
+        basic = strict_basic_answer(self._bqa, q)
         if basic and basic.get("answer"):
             try:
                 text = self._bqa.format_answer(basic["answer"])
             except Exception:  # noqa: BLE001
                 text = basic["answer"]
             return BackendAnswer(text, basic.get("emotion", "helpful"), "basic_qa", detail="basic_qa")
-        fun = lr.match_fun_request(q)
+        fun = lr.match_fun_request(q) if short else None
         if fun == "curious_fact":
             return BackendAnswer(lr.random_fun_fact(), "happy", "basic_qa", detail="fun_fact")
         if fun == "joke":
             return BackendAnswer(lr.random_joke(), "happy", "basic_qa", detail="fun_joke")
-        is_address = _has_word(q, _ADDRESS_WORDS) and _has_word(q, _UNI_WORDS + _WHERE_WORDS)
+        is_address = (_has_word(q, _ADDRESS_WORDS) and _has_word(q, _UNI_WORDS + _WHERE_WORDS)) or (
+            _has_word(q, _ADDRESS_WEAK) and _has_word(q, _UNI_WORDS)
+        )
         if is_address:
             addr = lr.spoken_udit_address()
             if addr:
@@ -190,6 +243,8 @@ class RulesBackend:
         know = lr.match_knowledge_text(q)
         if know and know[1] == "knowledge_address" and not is_address:
             know = None  # "¿cuánto cuesta el parking del campus?" no es una pregunta por la dirección
+        if know and know[1] == "knowledge_udito" and not (short and _has_word(q, _ID_WORDS)):
+            know = None  # «UDITO, ¿qué es un máster oficial?» no pregunta quién es UDITO
         if know and know[1] == "knowledge_horarios" and not _has_word(q, _SCHEDULE_WORDS):
             know = None  # "¿cuántas horas es un crédito?" no es una pregunta de horarios
         if know:
