@@ -26,7 +26,7 @@ C.C. layer. It has two consumers in this repo:
 
 | Consumer | Where | When the LLM is used |
 |---|---|---|
-| Offline pipeline (`./UDITO`) | `03_ADAPTERS/robot-udit-physical/llm_fallback.py`, called from `udito_standalone._process_text` | Only if `ROBITA_LLM_URL` is set, and only for queries the `rag-engine` classifies as general (`source == "gpt"`). University questions stay on RAG so the LLM cannot invent UDIT facts. |
+| Offline pipeline (`./UDITO`) | `01_SERVICES/voice-face-engine/llm_fallback.py`, called from `udito_standalone._process_text` | Only if `ROBITA_LLM_URL` is set, and only for queries the `rag-engine` classifies as general (`source == "gpt"`). University questions stay on RAG so the LLM cannot invent UDIT facts. |
 | ROS 2 dialog manager | `05_ROS2/ros2_ws/src/llm_dialog_manager` | `stt_topic` → router → `/v1/chat` → `com_act_server` (expression coordinator, C.C. layer). |
 
 `rag-engine` keeps owning documents and fixed Q&A; its own LLM backend is `none`

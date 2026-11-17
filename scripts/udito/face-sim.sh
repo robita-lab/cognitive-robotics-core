@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT"
 PY="${ROOT}/.venv/bin/python"
-ADAPTER="${ROOT}/03_ADAPTERS/robot-udit-physical"
+ADAPTER="${ROOT}/01_SERVICES/voice-face-engine"
 
 [[ -x "$PY" ]] || { echo "Falta .venv — ejecuta ./scripts/setup/jetson.sh"; exit 1; }
 

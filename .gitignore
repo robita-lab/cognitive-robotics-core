@@ -34,7 +34,7 @@ data/huggingface/
 # Temporales UDITO
 /tmp/udito_speech_out.json
 
-# Temporales ROS2
+# ROS 2: compilado, mapas y archivos locales
 05_ROS2/ros2_ws/build/
 05_ROS2/ros2_ws/install/
 05_ROS2/ros2_ws/log/
@@ -43,3 +43,5 @@ data/huggingface/
 05_ROS2/ros2_ws/map_1789719779.pgm
 05_ROS2/ros2_ws/map_1789719779.yaml
 05_ROS2/ros2_ws/src/robot_base_nav/
+.local-lib/
+.env.bak

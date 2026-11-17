@@ -6,12 +6,12 @@ Guía para ejecutar **wakeword + STT + RAG + TTS** en la Jetson **sin cerebro re
 
 Repositorio: [cognitive-robotics-core](https://github.com/robita-lab/cognitive-robotics-core).
 
-Ruta estándar: `/opt/robita-lab`
+Ruta estándar: `/opt/cognitive-robotics-core`
 
 **Rama Git:** **`develop`** (UDITO offline en Jetson). Ver [README.md](README.md#ramas-del-repositorio).
 
 ```bash
-git clone -b develop https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
+git clone -b develop https://github.com/robita-lab/cognitive-robotics-core.git /opt/cognitive-robotics-core
 ```
 
 ---
@@ -55,10 +55,10 @@ Si `python3 -m venv` falla por `ensurepip`, el script `setup/venv.sh` crea el `.
 **Opción A — clone público:**
 
 ```bash
-sudo mkdir -p /opt/robita-lab
-sudo chown -R "$USER:$USER" /opt/robita-lab
-git clone https://github.com/robita-lab/cognitive-robotics-core.git /opt/robita-lab
-cd /opt/robita-lab
+sudo mkdir -p /opt/cognitive-robotics-core
+sudo chown -R "$USER:$USER" /opt/cognitive-robotics-core
+git clone https://github.com/robita-lab/cognitive-robotics-core.git /opt/cognitive-robotics-core
+cd /opt/cognitive-robotics-core
 ```
 
 **Opción B — tarball mínimo (repo privado):** script archivado en `_archive/scripts/legacy/install-jetson-offline.sh`.
@@ -66,7 +66,7 @@ cd /opt/robita-lab
 ### 3. Configuración automática (venv + Piper aarch64 + .env)
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 ./scripts/setup/jetson.sh
 ```
 
@@ -81,7 +81,7 @@ Los binarios y voces en `01_SERVICES/tts-engine/piper/` del repo son **para Jets
 ### 4. Modelos de IA (primera vez con internet)
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 source .venv/bin/activate
 ./scripts/setup/models-download.sh
 ```
@@ -93,7 +93,7 @@ Descarga a `data/huggingface/` (Whisper, embeddings, TinyLlama). La primera ejec
 Si otro PC/Jetson ya tiene `data/huggingface/`:
 
 ```bash
-rsync -avz usuario@IP:/opt/robita-lab/data/huggingface/ /opt/robita-lab/data/huggingface/
+rsync -avz usuario@IP:/opt/cognitive-robotics-core/data/huggingface/ /opt/cognitive-robotics-core/data/huggingface/
 ```
 
 Vuelve a ejecutar `./scripts/setup/models-download.sh` solo si faltan archivos.
@@ -112,7 +112,7 @@ En **esta Jetson** el motor por defecto es **[openWakeWord](https://github.com/d
 
 ```bash
 # Copia tu modelo entrenado con openWakeWord:
-cp /ruta/udito.onnx /opt/robita-lab/01_SERVICES/wakeword-engine/models/udito.onnx
+cp /ruta/udito.onnx /opt/cognitive-robotics-core/01_SERVICES/wakeword-engine/models/udito.onnx
 ./scripts/setup/wakeword.sh
 ```
 
@@ -140,7 +140,7 @@ cp /ruta/udito.onnx /opt/robita-lab/01_SERVICES/wakeword-engine/models/udito.onn
 Edita `.env`:
 
 ```bash
-nano /opt/robita-lab/.env
+nano /opt/cognitive-robotics-core/.env
 ```
 
 - `ROBITA_AUDIO_INPUT` — índice del mic (entero)
@@ -157,7 +157,7 @@ Prueba TTS sin wakeword:
 **Comando principal (recomendado en Jetson):**
 
 ```bash
-cd /opt/robita-lab
+cd /opt/cognitive-robotics-core
 ./scripts/udito/start.sh
 # atajo en la raíz del repo:
 ./UDITO
@@ -191,14 +191,14 @@ Flujo: di **«udito»** → saludo → pregunta → respuesta hablada.
 El perfil Jetson incluye solo `Horarios_UDIT.txt`. Para los PDFs del servidor:
 
 ```bash
-rsync -avz usuario@IP_SERVIDOR:/opt/robita-lab/04_KNOWLEDGE_CORE/raw-docs/ \
-  /opt/robita-lab/04_KNOWLEDGE_CORE/raw-docs/
+rsync -avz usuario@IP_SERVIDOR:/opt/cognitive-robotics-core/04_KNOWLEDGE_CORE/raw-docs/ \
+  /opt/cognitive-robotics-core/04_KNOWLEDGE_CORE/raw-docs/
 ```
 
 Luego cambia en `.env`:
 
 ```bash
-ROBITA_RAG_CONFIG=/opt/robita-lab/01_SERVICES/rag-engine/config/rag_config.json
+ROBITA_RAG_CONFIG=/opt/cognitive-robotics-core/01_SERVICES/rag-engine/config/rag_config.json
 ```
 
 y reinicia standalone (reindexará RAG).

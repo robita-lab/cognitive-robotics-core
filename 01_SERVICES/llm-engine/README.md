@@ -12,7 +12,7 @@ Diseño completo, latencias y decisiones: [ARCHITECTURE.md](ARCHITECTURE.md).
 Capa **Cognitive** (LLM + memoria corta). Nunca da órdenes a actuadores: la
 respuesta vuelve por la capa C.C. Lo usan:
 
-- **Pipeline offline** — `03_ADAPTERS/robot-udit-physical/llm_fallback.py`.
+- **Pipeline offline** — `01_SERVICES/voice-face-engine/llm_fallback.py`.
   Solo si `ROBITA_LLM_URL` está definida y solo para preguntas generales
   (fuente RAG `gpt`). Las preguntas de la universidad siguen en `rag-engine`.
 - **ROS 2** — paquete `05_ROS2/ros2_ws/src/llm_dialog_manager`
