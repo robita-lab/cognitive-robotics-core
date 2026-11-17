@@ -1,10 +1,33 @@
 # create a new interfaces
 ros2 pkg create --build-type ament_cmake --license Apache-2.0 tutorial_interfaces
 
-# compilar desde cero
+# make clean colcon
 rm -rf build install log
 colcon build --cmake-clean-cache
 source install/setup.bash
 
 # lanzar un nodo
-ros2 
+ros2 launch <nombre-paquete> <nombre fichero .launch>
+
+# Nomenclaturas:
+- foo_server, para cualquier servidor
+- foo_behavior, servidores que comparten mensajes Behavior.srv, y son secuenciados
+
+
+# Navegacion SLAM y mapas
+ros2 launch robot_base_nav bringup.launch.py serial_port:=/dev/ttyACM0
+
+ros2 launch robot_base_nav slam.launch.py
+
+ros2 launch robot_base_nav navigation.launch.py
+
+# Teleoperación
+sudo apt install ros-humble-teleop-twist-keyboard -y
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+
+# Testear topics de la base del robot (odometria y medidas del Lidar):
+ros2 topic hz /odom
+ros2 topic hz /ldlidar_node/scan
+
+# Guardar mapa:
+ros2 run nav2_map_server map_saver_cli -f ~/mi_mapa
