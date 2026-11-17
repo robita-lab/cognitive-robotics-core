@@ -1,0 +1,28 @@
+# Overlay for the on-robot LOCAL tier.
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.local.yml up --build
+#
+# Differences from the server tier:
+#   - UDITO_TIER=local
+#   - Smaller model (qwen2.5:0.5b-instruct)
+#   - Redis is disabled (memory falls back to InMemoryStore)
+#
+# Notes:
+#   Redis is still defined in the base file; on the local tier we disable it by
+#   giving it a no-op entrypoint so it exits immediately and the api container
+#   skips it. The api's REDIS_URL is cleared so the InMemoryStore is selected.
+
+services:
+  api:
+    environment:
+      UDITO_TIER: local
+      LLM_MODEL: qwen2.5:0.5b-instruct
+      REDIS_URL: ""
+    depends_on:
+      ollama:
+        condition: service_healthy
+      redis:
+        condition: service_started
+
+  redis:
+    profiles: ["disabled"]
