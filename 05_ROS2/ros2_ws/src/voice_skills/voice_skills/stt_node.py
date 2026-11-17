@@ -27,6 +27,11 @@ from central_control import intents as I
 from central_control import topics
 from central_control.paths import SERVICES, add_engine_paths
 
+DEFAULT_CONTEXT_PROMPT = (
+    "UDITO es el robot de UDIT, la Universidad de Diseño, Innovación y Tecnología, con sedes en "
+    "Madrid. Grados, másteres oficiales, asignaturas, créditos, matrícula, normativa y Secretaría."
+)
+
 
 class SttNode(Node):
     def __init__(self) -> None:
@@ -39,7 +44,10 @@ class SttNode(Node):
         self.declare_parameter("min_speech_sec", 0.3)    # descarta toques muy cortos
         self.declare_parameter("calib_sec", 1.5)         # vad: calibración de ruido
         self.declare_parameter("model", "base")          # tiny (más rápido) · base · small (más preciso)
-        self.declare_parameter("threads", 4)             # núcleos de CPU para Whisper
+        self.declare_parameter("threads", os.cpu_count() or 4)  # núcleos de CPU para Whisper (Orin Nano: 6)
+        # Vocabulario de contexto que se añade a la frase guía de Whisper (vacío = solo órdenes).
+        # Sin él, «UDIT» y «sedes» salían siempre mal («un hit», «se destiene»).
+        self.declare_parameter("context_prompt", DEFAULT_CONTEXT_PROMPT)
 
         add_engine_paths("stt-engine")
         import robot_common as rc
@@ -63,6 +71,10 @@ class SttNode(Node):
             self.prompt = I.vocabulary_prompt(I.load()["intents"])
         except Exception:  # noqa: BLE001
             self.prompt = None
+        # Va al final: faster-whisper conserva solo los últimos ~223 tokens de la guía.
+        context = str(self.get_parameter("context_prompt").value).strip()
+        if context:
+            self.prompt = f"{self.prompt} {context}" if self.prompt else context
 
         self.mode = str(self.get_parameter("mode").value)
         self.enabled = True
@@ -192,6 +204,9 @@ class SttNode(Node):
             segments, _ = self.stt._model.transcribe(
                 path, language="es", beam_size=1, initial_prompt=self.prompt,
                 condition_on_previous_text=False, vad_filter=False,
+                # Sin reintentos a temperatura creciente: con audio dudoso repetía la
+                # decodificación hasta 6 veces (40 s en la Jetson) y alucinaba la guía.
+                temperature=0.0, without_timestamps=True,
             )
             text = " ".join(s.text for s in segments).strip()
         except Exception as e:  # noqa: BLE001

@@ -278,10 +278,32 @@ def input_capture_channels(device: int | str | None) -> tuple[int, bool]:
     return 1, False
 
 
+def capture_channel() -> int | None:
+    """Canal que se usa con micrófonos multicanal (ROBITA_AUDIO_CHANNEL; None = promedio).
+
+    ReSpeaker 4 Mic Array (firmware de 6 canales): 0 = audio ya procesado por la placa
+    (beamforming, cancelación de eco, supresión de ruido), 1-4 = micros en bruto,
+    5 = referencia de reproducción (en silencio). Promediar los 6 mezcla la señal limpia
+    con las crudas desfasadas y empeora mucho a Whisper: con frases grabadas en la Jetson,
+    «¿qué asignaturas tiene el máster oficial de animación?» salía como «¿qué hace en la
+    naturaleza el más oficial de la emisión?». Por defecto canal 0; «mean» = promedio.
+    """
+    raw = os.getenv("ROBITA_AUDIO_CHANNEL", "0").strip().lower()
+    if raw in ("", "mean", "media"):
+        return None
+    try:
+        return int(raw)
+    except ValueError:
+        return 0
+
+
 def mono_from_capture(indata: np.ndarray) -> np.ndarray:
     if indata.ndim == 1:
         return indata.copy().astype(np.float32)
-    return indata.mean(axis=1).astype(np.float32)
+    ch = capture_channel()
+    if ch is None or not 0 <= ch < indata.shape[1]:
+        return indata.mean(axis=1).astype(np.float32)
+    return indata[:, ch].astype(np.float32)
 
 
 def calibrate_noise_floor(sample_rate: int, seconds: float) -> float:
