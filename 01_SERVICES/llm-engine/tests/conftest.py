@@ -11,10 +11,10 @@ class FakeLLMClient:
     def __init__(self, canned_reply: str = "hola, soy UDITO") -> None:
         self._reply = canned_reply
 
-    async def complete(self, messages: list[dict], max_tokens: int) -> str:
+    async def complete(self, messages: list[dict], max_tokens: int, temperature: float | None = None) -> str:
         return self._reply
 
-    async def stream_complete(self, messages: list[dict], max_tokens: int):
+    async def stream_complete(self, messages: list[dict], max_tokens: int, temperature: float | None = None):
         for chunk in self._reply.split(" "):
             yield chunk + " "
 
@@ -29,6 +29,14 @@ class FakeLLMClient:
 
     async def close(self) -> None:
         return None
+
+
+@pytest.fixture(autouse=True)
+def _no_api_keys_from_local_env(monkeypatch):
+    """Los tests no dependen del .env local: sin clave salvo que el test la ponga."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "api_keys", "")
 
 
 @pytest.fixture

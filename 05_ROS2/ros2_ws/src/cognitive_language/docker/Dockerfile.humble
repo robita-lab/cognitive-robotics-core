@@ -1,0 +1,41 @@
+# Imagen de desarrollo/CI para cognitive_language. No incluye el código: se monta el repo.
+# Contexto = carpeta del paquete (solo para bajar el modelo con la revisión fijada):
+#
+#   cd 05_ROS2/ros2_ws/src/cognitive_language
+#   docker build -t cognitive-language:humble -f docker/Dockerfile.humble .
+#   docker build -t cognitive-language:humble-legacy --build-arg LEGACY_RAG=1 -f docker/Dockerfile.humble .
+#
+# Por defecto solo lo que necesita el backend "normativa": numpy + onnxruntime +
+# tokenizers (sin torch) y el modelo e5-small ONNX dentro de la imagen para
+# funcionar sin red. LEGACY_RAG=1 añade torch/sentence-transformers/faiss/PyPDF2
+# para el backend "legacy" (RAGSystem de 01_SERVICES/rag-engine).
+# Jazzy (D19): --build-arg ROS_DISTRO=jazzy.
+ARG ROS_DISTRO=humble
+FROM ros:${ROS_DISTRO}-ros-base
+
+ENV PIP_NO_CACHE_DIR=1 PIP_BREAK_SYSTEM_PACKAGES=1 COGNITIVE_MODELS_DIR=/opt/cognitive_language/models
+
+RUN apt-get update && apt-get install -y --no-install-recommends python3-pip python3-pytest \
+    && rm -rf /var/lib/apt/lists/*
+
+# numpy<2: los paquetes de ROS del sistema están compilados contra numpy 1.x.
+# pytest 7–8 de pip: el de apt (6.2) no carga el plugin de anyio (lo arrastra tokenizers)
+# y pytest 9 rompe el plugin launch_testing de ROS Humble.
+RUN pip3 install "numpy<2" "onnxruntime>=1.17" "tokenizers>=0.15" "pytest>=7,<9"
+
+ARG LEGACY_RAG=0
+ENV HF_HOME=/opt/hf
+RUN if [ "$LEGACY_RAG" = "1" ]; then \
+      pip3 install torch --index-url https://download.pytorch.org/whl/cpu \
+      && pip3 install "sentence-transformers>=3.0.0" "faiss-cpu>=1.7.4" "PyPDF2>=3.0.0" \
+      && python3 -c "from sentence_transformers import SentenceTransformer as S; S('sentence-transformers/all-MiniLM-L6-v2')" \
+      # torch arrastra un setuptools de pip que rompe `colcon build` con el packaging del
+      # sistema (TypeError ... strip_trailing_zero): lo quitamos y queda el de apt.
+      # OJO: en la Jetson pasa lo mismo si se instala torch con pip.
+      && pip3 uninstall -y setuptools; \
+    fi
+
+# Modelo de embeddings (revisión fijada en cognitive_language/core/embeddings.py).
+COPY cognitive_language /tmp/rc/cognitive_language
+RUN cd /tmp/rc && python3 -m cognitive_language.tools.fetch_model --dest "$COGNITIVE_MODELS_DIR" && rm -rf /tmp/rc
+ENV HF_HUB_OFFLINE=1

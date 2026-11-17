@@ -23,31 +23,22 @@ class OpenAICompatClient:
             timeout=timeout,
         )
 
-    async def complete(self, messages: list[dict], max_tokens: int) -> str:
-        resp = await self._client.post(
-            "/chat/completions",
-            json={
-                "model": self._model,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "stream": False,
-            },
-        )
+    async def complete(self, messages: list[dict], max_tokens: int, temperature: float | None = None) -> str:
+        body = {"model": self._model, "messages": messages, "max_tokens": max_tokens, "stream": False}
+        if temperature is not None:
+            body["temperature"] = temperature
+        resp = await self._client.post("/chat/completions", json=body)
         resp.raise_for_status()
         data = resp.json()
         return data["choices"][0]["message"]["content"]
 
-    async def stream_complete(self, messages: list[dict], max_tokens: int) -> AsyncIterator[str]:
-        async with self._client.stream(
-            "POST",
-            "/chat/completions",
-            json={
-                "model": self._model,
-                "messages": messages,
-                "max_tokens": max_tokens,
-                "stream": True,
-            },
-        ) as resp:
+    async def stream_complete(
+        self, messages: list[dict], max_tokens: int, temperature: float | None = None
+    ) -> AsyncIterator[str]:
+        body = {"model": self._model, "messages": messages, "max_tokens": max_tokens, "stream": True}
+        if temperature is not None:
+            body["temperature"] = temperature
+        async with self._client.stream("POST", "/chat/completions", json=body) as resp:
             resp.raise_for_status()
             async for line in resp.aiter_lines():
                 if not line or not line.startswith("data:"):

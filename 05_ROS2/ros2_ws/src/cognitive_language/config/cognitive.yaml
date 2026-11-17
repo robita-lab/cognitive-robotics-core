@@ -1,0 +1,20 @@
+# Parámetros de cognitive_language. Ver README.md.
+cognitive_language:
+  ros__parameters:
+    repo_root: ""                 # vacío = $COGNITIVE_REPO_ROOT o autodetectar
+    use_rag: true                 # false = solo reglas / respuestas fijas
+    rag_backend: normativa        # normativa (e5-small ONNX, sin torch) | legacy (RAGSystem, torch) | none
+    index_dir: ""                 # vacío = 04_KNOWLEDGE_CORE/indexes/normativa
+    rag_config: ""                # solo legacy: vacío = $ROBITA_RAG_CONFIG o rag-engine/config/rag_config.json
+    rag_rebuild: false            # solo legacy
+    llm_url: ""                   # vacío = $COGNITIVE_LLM_URL; sin URL todo es local. Clave: $COGNITIVE_LLM_API_KEY
+    llm_timeout_s: 0.0            # espera al primer token; 0 = $COGNITIVE_LLM_TIMEOUT o 8 s
+    llm_max_tokens: 0             # 0 = $COGNITIVE_LLM_MAX_TOKENS o 120
+    scope_guard: true             # preguntas de UDIT sin respuesta local → "no tengo ese dato" (no al LLM)
+    memory_turns: 8               # pares pregunta/respuesta por sesión
+    memory_ttl_s: 300.0           # sesión olvidada tras 5 min sin actividad
+    think_action: /udito/cognitive/think
+    topic_adapter: true           # compatibilidad con el C.C. de udito_ros
+    query_topic: /udito/cognitive/query
+    answer_topic: /udito/cognitive/answer
+    topic_session_idle_s: 120.0   # por topics no hay session_id: sesión nueva tras 2 min de silencio

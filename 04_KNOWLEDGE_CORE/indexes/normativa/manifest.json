@@ -1,0 +1,56 @@
+{
+  "name": "normativa",
+  "version": "2026-11-09-deee5efafe",
+  "fingerprint": "deee5efafe",
+  "embedding_model": "intfloat/multilingual-e5-small",
+  "model_revision": "614241f622f53c4eeff9890bdc4f31cfecc418b3",
+  "dim": 384,
+  "chunker": "articulos-v2",
+  "max_chars": 900,
+  "min_score": 0.84,
+  "search_mode": "dense",
+  "n_chunks": 107,
+  "n_sentences": 311,
+  "sources": [
+    {
+      "code": "ACC",
+      "path": "04_KNOWLEDGE_CORE/raw-docs/04_Normativa_AccesoyAdmision.pdf",
+      "sha256": "1bcb9e06a20d658d550e48688bccc439eed71de25ca75d08ec766a7ba6d02d1e",
+      "pages": 11,
+      "units": 9,
+      "chunks": 24
+    },
+    {
+      "code": "RAC",
+      "path": "04_KNOWLEDGE_CORE/raw-docs/06_Normativa-RAC.pdf",
+      "sha256": "5bb869710636277459c17addf1ee51a7a00731958d011b24db731b3cbab5bd7d",
+      "pages": 13,
+      "units": 11,
+      "chunks": 24
+    },
+    {
+      "code": "CON",
+      "path": "04_KNOWLEDGE_CORE/raw-docs/Condiciones_generales24.25.pdf",
+      "sha256": "a4471635b35e924055f02644b96ec95e028b378cb9eb28199861b03f1c89482a",
+      "pages": 10,
+      "units": 13,
+      "chunks": 39
+    },
+    {
+      "code": "EXT",
+      "path": "04_KNOWLEDGE_CORE/raw-docs/NormativaExtincionTitulacionesOficiales.pdf",
+      "sha256": "73ebe0b494a55536dd330fdb56a6d9c60a4deff714731e3780e74f1eba4efb54",
+      "pages": 3,
+      "units": 14,
+      "chunks": 14
+    },
+    {
+      "code": "POL",
+      "path": "04_KNOWLEDGE_CORE/raw-docs/UDIT-POLITICA-DE-CALIDAD-Y-M.AMBIENTE.pdf",
+      "sha256": "8cf675c26d06da1791f9132d43c6f12f8b32244a62df3011e2c77febd95b791b",
+      "pages": 1,
+      "units": 1,
+      "chunks": 6
+    }
+  ]
+}

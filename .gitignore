@@ -42,6 +42,5 @@ data/huggingface/
 05_ROS2/ros2_ws/.posegraph
 05_ROS2/ros2_ws/map_1789719779.pgm
 05_ROS2/ros2_ws/map_1789719779.yaml
-05_ROS2/ros2_ws/src/robot_base_nav/
 .local-lib/
 .env.bak
