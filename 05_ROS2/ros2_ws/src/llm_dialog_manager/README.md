@@ -10,7 +10,7 @@ architecture v2 it sits in the C.C. (ROS 2) layer: it asks the Cognitive layer
 (`llm-engine`) *what* to say and hands it to `com_act_server` to decide *how*.
 
 > The live offline pipeline (`./UDITO`) does not use ROS for dialog; it calls
-> `llm-engine` directly via `03_ADAPTERS/robot-udit-physical/llm_fallback.py`.
+> `llm-engine` directly via `01_SERVICES/voice-face-engine/llm_fallback.py`.
 > This node is the ROS 2 path, for when STT/expression run as ROS nodes.
 
 ## Components

@@ -10,7 +10,7 @@ La base del robot está modelada como un archivo URDF en [robot.urdf](.\descript
 
 El nodo que la controla está en [serial_bridge_node.py](.\robot_base_nav\serial_bridge_node.py), y hace de puente entre TOPICS de navegación de ROS y el puerto serie para comunicación con Arduino.
 
-El código que va a la placa Arduino que controla los motores de las ruedas está en [mainBasePIDControl.ino](..\03_ADAPTERS\robot-udit-physical\base-wheels\mainBasePIDcontrol\mainBasePIDcontrol.ino)
+El código que va a la placa Arduino que controla los motores de las ruedas está en [mainBasePIDControl.ino](../../../../03_ADAPTERS/UDITO_ROBOT_SOCIAL/Dispositivos/Arduino_Ruedas/firmware/mainBasePIDcontrol/mainBasePIDcontrol.ino)
 
 Los topics que recibe el nodo para mover la base son:
 - Topic de movimiento: `cmd_vel` de tipo Twist definido en el estándar de ROS: `geometry_msgs.msg`
