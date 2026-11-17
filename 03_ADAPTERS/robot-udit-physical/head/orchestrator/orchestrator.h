@@ -9,6 +9,11 @@
 #include <string>
 //#include "lib/lib.h"
 
+
+#define ORCH_WINDOW 1000000 //1s
+
+
+
 void printmutex(std::ostream& os, std::string name, std::string msg);
 
 class Msg {
@@ -53,16 +58,29 @@ class orchestrator;
 class worker{
 protected:
   std::thread* th;
+  inline Msg* popMsg(){
+    std::unique_lock<std::mutex> unique_worker(mtx_worker);//std::unique_lock with this constructor also invokes lock
+    cond_worker.wait(unique_worker, [this] { return this->worker_turn && !pending_tasks.empty(); });
+
+    Msg* m = pending_tasks.front();//blocking because of condition variable
+    pending_tasks.pop_front();
+
+    unique_worker.unlock();
+    cond_worker.notify_one();
+    return m;
+  }
+
 public:
   //orchestrator* orch;
+  int worker_id;
   std::string name;
   std::mutex mtx_worker; //mutex protecting global variable a
   std::condition_variable cond_worker;
-  std::deque<std::string*> pending_tasks;
+  std::deque<Msg*> pending_tasks;
   int a;
   bool terminate, worker_turn;//terminate controls the main loop of the thread, once set to false in the next iteration the loop in work will exit and 
   //worker(orchestrator* _orch, std::string _name) : orch(_orch), name(_name){
-  worker(std::string _name) : name(_name){
+  worker(int _worker_id, std::string _name) : worker_id(_worker_id),name(_name){
     a = 0; terminate = false; worker_turn = false;
     th = new std::thread();
   }
@@ -79,6 +97,15 @@ public:
     th->join();
     printmutex(std::cout, name, std::format("Valor de a: {}", a));
   }
+  
+  inline void pushMsg(Msg* m){
+    std::unique_lock<std::mutex> unique_worker(mtx_worker);//std::unique_lock with this constructor also invokes lock
+
+    pending_tasks.push_back(m);
+
+    unique_worker.unlock();
+  }
+
   //this simulates work and dotask
   void work(Params* p); 
   //this method can be virtual and subclasses reimplement it accordingly
@@ -149,18 +176,15 @@ public:
 
 class orchestrator{
 public:
+  int orch_id;
+  int workcycles;
   std::string llm_response;
   std::map<std::string, worker*>* allworkers;
   //real_clock
   //synchronous schedule(partitura) as a queue/list of actions-gestures for neck or eyes to play
-
-  orchestrator(std::map<std::string, worker*>* _allworkers, int workcycles) : allworkers(_allworkers){
-    
-    //others
-
-    //main loop
-    assign_tasks(workcycles);
-  }
+  //for now is a synthetic live-generated messaages in assign_tasks
+  
+  orchestrator(int _orch_id, std::map<std::string, worker*>* _allworkers, int _workcycles) : orch_id(_orch_id), allworkers(_allworkers), workcycles(_workcycles){}
   orchestrator(orchestrator& other) : llm_response(other.llm_response) {
     delete allworkers;
     allworkers = new std::map<std::string, worker*>(*other.allworkers);
